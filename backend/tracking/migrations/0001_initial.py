@@ -16,10 +16,13 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('name', models.CharField(max_length=100)),
-                ('capacity', models.FloatField()),
-                ('current_lat', models.FloatField(blank=True, null=True)),
-                ('current_lng', models.FloatField(blank=True, null=True)),
+                ('vehicle_type', models.CharField(choices=[('truck', 'Truck'), ('mini_truck', 'Mini Truck'), ('van', 'Van')], default='truck', max_length=20)),
+                ('current_lat', models.FloatField()),
+                ('current_lng', models.FloatField()),
+                ('speed', models.FloatField(default=0)),
+                ('fuel_level', models.IntegerField(default=100)),
                 ('is_available', models.BooleanField(default=True)),
+                ('driver_name', models.CharField(default='Unknown Driver', max_length=100)),
             ],
         ),
     ]

@@ -75,15 +75,10 @@ ASGI_APPLICATION = 'config.asgi.application'
 # -------------------------------
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'javiator',
-        'USER': 'admin',
-        'PASSWORD': 'admin',
-        'HOST': 'db',  #  IMPORTANT CHANGE
-        'PORT': '5432',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
 # -------------------------------
 # AUTH
 # -------------------------------

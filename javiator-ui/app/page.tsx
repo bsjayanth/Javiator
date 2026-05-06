@@ -13,7 +13,14 @@ import {
   Sun
 } from "lucide-react";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+type FleetKpis = {
+  total_vehicles: number;
+  active_vehicles: number;
+  moving_vehicles: number;
+  low_fuel_vehicles: number;
+};
 
 const FleetMap = dynamic(
   () => import("./components/FleetMap"),
@@ -30,6 +37,52 @@ const FleetMap = dynamic(
 export default function Home() {
 
   const [darkMode, setDarkMode] = useState(true);
+
+  const [kpis, setKpis] = useState<FleetKpis>({
+    total_vehicles: 0,
+    active_vehicles: 0,
+    moving_vehicles: 0,
+    low_fuel_vehicles: 0,
+  });
+
+  const fetchKpis = async () => {
+
+    try {
+
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/fleet/kpis/"
+      );
+
+      const data = await response.json();
+
+      console.log(data);
+
+      setKpis(data);
+
+    } catch (error) {
+
+      console.error(
+        "KPI fetch error:",
+        error
+      );
+
+    }
+
+  };
+
+  useEffect(() => {
+
+    fetchKpis();
+
+    const interval = setInterval(() => {
+
+      fetchKpis();
+
+    }, 5000);
+
+    return () => clearInterval(interval);
+
+  }, []);
 
   return (
 
@@ -177,16 +230,16 @@ export default function Home() {
 
               {[
                 {
-                  title: "Fleet Utilization",
-                  value: "84%"
-                },
-                {
-                  title: "Delivery Success",
-                  value: "97%"
-                },
-                {
                   title: "Active Vehicles",
-                  value: "42"
+                  value: kpis.active_vehicles
+                },
+                {
+                  title: "Moving Vehicles",
+                  value: kpis.moving_vehicles
+                },
+                {
+                  title: "Total Vehicles",
+                  value: kpis.total_vehicles
                 }
               ].map((item, index) => (
 

@@ -36,7 +36,7 @@ export default function FleetMap() {
   const fetchVehicles = async () => {
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/vehicles/"
+        "http://127.0.0.1:8000/api/fleet/vehicles/"
       );
 
       const data = await response.json();

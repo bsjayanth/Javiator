@@ -1,0 +1,73 @@
+version: '3.9'
+
+services:
+
+  web:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: >
+      sh -c "
+      python manage.py makemigrations &&
+      python manage.py migrate &&
+      python manage.py runserver 0.0.0.0:8000
+      "
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+      - DJANGO_SETTINGS_MODULE=config.settings
+    depends_on:
+      - redis
+      - db
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: celery -A config worker --loglevel=info --pool=solo
+    volumes:
+      - ./backend:/app
+    environment:
+      - PYTHONPATH=/app
+      - DJANGO_SETTINGS_MODULE=config.settings
+    depends_on:
+      - redis
+      - db
+
+  beat:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: celery -A config beat --loglevel=info
+    volumes:
+      - ./backend:/app
+    environment:
+      - PYTHONPATH=/app
+      - DJANGO_SETTINGS_MODULE=config.settings
+    depends_on:
+      - redis
+      - db
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  db:
+    image: postgres:15
+    container_name: javiator-db
+    environment:
+      POSTGRES_DB: javiator
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data   # ✅ THIS IS THE FIX
+
+# 👇 ADD THIS BLOCK (VERY IMPORTANT)
+volumes:
+  postgres_data:

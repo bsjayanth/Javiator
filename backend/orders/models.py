@@ -14,6 +14,7 @@ class Order(models.Model):
         ("in_transit", "In Transit"),
 
         ("delivered", "Delivered"),
+
     ]
 
     customer_name = models.CharField(
@@ -40,6 +41,12 @@ class Order(models.Model):
     assigned_vehicle = models.ForeignKey(
         "fleet.Vehicle",
         on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
+    # REAL ROAD ROUTE DATA
+    route_data = models.JSONField(
         null=True,
         blank=True
     )

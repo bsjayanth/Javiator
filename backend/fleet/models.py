@@ -31,7 +31,7 @@ class Vehicle(models.Model):
     )
 
     speed = models.FloatField(
-        default=0
+        default=40
     )
 
     fuel_level = models.FloatField(
@@ -47,12 +47,35 @@ class Vehicle(models.Model):
     )
 
     is_moving = models.BooleanField(
-        default=True
+        default=False
     )
 
     driver_name = models.CharField(
         max_length=100,
         default="Unknown Driver"
+    )
+
+    # 🚚 ACTIVE DELIVERY ROUTE
+
+    route_data = models.JSONField(
+        default=list,
+        blank=True
+    )
+
+    # Current position in route array
+
+    route_index = models.IntegerField(
+        default=0
+    )
+
+    # Current active order
+
+    current_order = models.ForeignKey(
+        "orders.Order",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="active_vehicle"
     )
 
     updated_at = models.DateTimeField(
@@ -61,4 +84,7 @@ class Vehicle(models.Model):
 
     def __str__(self):
 
-        return f"{self.name} - {self.driver_name}"
+        return (
+            f"{self.name} - "
+            f"{self.driver_name}"
+        )

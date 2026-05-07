@@ -37,11 +37,21 @@ app.conf.beat_schedule = {
 
     # Auto dispatch engine
 
-    'auto-dispatch-every-5-seconds': {
+    'auto-dispatch-every-1-seconds': {
 
         'task':
         'dispatch.tasks.auto_dispatch',
 
-        'schedule': 5.0,
+        'schedule': 1.0,
+    },
+
+    # Delivery lifecycle simulation
+
+    'delivery-simulation-every-10-seconds': {
+
+        'task':
+        'dispatch.tasks.run_delivery_simulation',
+
+        'schedule': 10.0,
     },
 }

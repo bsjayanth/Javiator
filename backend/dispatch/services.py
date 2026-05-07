@@ -1,109 +1,328 @@
 from fleet.models import Vehicle
+
 from orders.models import Order
+
 from .utils import calculate_distance
 
+from .routing import get_route
 
-# 🔹 SCORING FUNCTION
+
+# 🔹 VEHICLE SCORING ENGINE
+
 def calculate_score(vehicle, order):
+
     distance = calculate_distance(
-        vehicle.current_lat, vehicle.current_lng,
-        order.pickup_lat, order.pickup_lng
+        vehicle.current_lat,
+        vehicle.current_lng,
+        order.pickup_lat,
+        order.pickup_lng
     )
 
+    # Vehicle cannot carry load
+
     if vehicle.capacity < order.weight:
+
         return float('inf')
 
-    capacity_util = order.weight / vehicle.capacity
+    # Low fuel penalty
+
+    if vehicle.fuel_level < 15:
+
+        return float('inf')
+
+    # Capacity utilization
+
+    capacity_util = (
+        order.weight / vehicle.capacity
+    )
+
+    # Lower score = better vehicle
 
     score = (
+
         distance * 0.6 +
+
         (1 - capacity_util) * 0.4
+
     )
 
     return score
 
 
-# 🔹 FIND NEARBY ORDERS (CLUSTER)
-def find_nearby_orders(order, radius=5):
+# 🔹 CLUSTER NEARBY ORDERS
+
+def find_nearby_orders(
+    order,
+    radius=5
+):
+
     pending_orders = Order.objects.filter(
+
         status="created",
+
         assigned_vehicle__isnull=True
     )
 
     cluster = []
 
     for o in pending_orders:
+
         distance = calculate_distance(
-            order.pickup_lat, order.pickup_lng,
-            o.pickup_lat, o.pickup_lng
+
+            order.pickup_lat,
+            order.pickup_lng,
+
+            o.pickup_lat,
+            o.pickup_lng
         )
 
         if distance <= radius:
-            cluster.append((o, distance))
 
-    # 🔥 SORT by distance (important)
-    cluster.sort(key=lambda x: x[1])
+            cluster.append(
+                (o, distance)
+            )
+
+    # Sort nearest first
+
+    cluster.sort(
+        key=lambda x: x[1]
+    )
 
     return [o[0] for o in cluster]
 
 
-# 🔹 MAIN DISPATCH FUNCTION
+# 🔹 MAIN AUTO DISPATCH ENGINE
+
 def assign_vehicle(order_id):
-    order = Order.objects.get(id=order_id)
 
-    vehicles = Vehicle.objects.filter(is_available=True)
+    try:
 
-    best_vehicle = None
-    best_score = float('inf')
+        order = Order.objects.get(
+            id=order_id
+        )
 
-    # 🔥 Step 1: Check if nearby orders already assigned to a vehicle
-    nearby_orders = find_nearby_orders(order)
+    except Order.DoesNotExist:
 
-    for o in nearby_orders:
-        if o.assigned_vehicle:
-            print(f"♻️ Reusing vehicle {o.assigned_vehicle.id}")
-            best_vehicle = o.assigned_vehicle
-            break
+        print(
+            f"❌ Order {order_id} not found"
+        )
 
-    # 🔥 Step 2: If no existing vehicle → pick best one
-    if not best_vehicle:
-        for v in vehicles:
-            score = calculate_score(v, order)
-            print(f"Vehicle {v.id} score: {score}")
-
-            if score < best_score:
-                best_score = score
-                best_vehicle = v
-
-    if not best_vehicle:
-        print("❌ No vehicle found")
         return None
 
-    print(f"✅ Selected vehicle: {best_vehicle.id}")
+    # Skip already assigned orders
 
-    # 🔥 Step 3: Ensure current order is included
+    if order.assigned_vehicle:
+
+        print(
+            f"⚠️ Order {order.id} "
+            f"already assigned"
+        )
+
+        return order.assigned_vehicle
+
+    # Available vehicles only
+
+    vehicles = Vehicle.objects.filter(
+        is_available=True,
+        fuel_level__gt=10
+    )
+
+    if not vehicles.exists():
+
+        print("❌ No available vehicles")
+
+        return None
+
+    best_vehicle = None
+
+    best_score = float('inf')
+
+    # 🔥 STEP 1:
+    # Find nearby clustered orders
+
+    nearby_orders = find_nearby_orders(
+        order
+    )
+
+    print(
+        f"📦 Nearby orders found: "
+        f"{len(nearby_orders)}"
+    )
+
+    # 🔥 STEP 2:
+    # Reuse assigned nearby vehicle
+
+    for o in nearby_orders:
+
+        if o.assigned_vehicle:
+
+            best_vehicle = o.assigned_vehicle
+
+            print(
+
+                f"♻️ Reusing vehicle "
+
+                f"{best_vehicle.id}"
+            )
+
+            break
+
+    # 🔥 STEP 3:
+    # Find best vehicle
+
+    if not best_vehicle:
+
+        for vehicle in vehicles:
+
+            score = calculate_score(
+                vehicle,
+                order
+            )
+
+            print(
+
+                f"🚚 Vehicle "
+
+                f"{vehicle.id} "
+
+                f"score: {score}"
+            )
+
+            if score < best_score:
+
+                best_score = score
+
+                best_vehicle = vehicle
+
+    if not best_vehicle:
+
+        print("❌ No vehicle selected")
+
+        return None
+
+    print(
+
+        f"✅ Selected vehicle: "
+
+        f"{best_vehicle.id}"
+    )
+
+    # 🔥 STEP 4:
+    # Generate FULL DELIVERY ROUTE
+
+    # ROUTE 1:
+    # Vehicle → Pickup
+
+    pickup_route = get_route(
+
+        best_vehicle.current_lat,
+        best_vehicle.current_lng,
+
+        order.pickup_lat,
+        order.pickup_lng
+    )
+
+    # ROUTE 2:
+    # Pickup → Drop
+
+    delivery_route = get_route(
+
+        order.pickup_lat,
+        order.pickup_lng,
+
+        order.drop_lat,
+        order.drop_lng
+    )
+
+    # 🔥 MERGE ROUTES
+
+    route = pickup_route + delivery_route
+
+    print(
+
+        f"🛣️ Full route generated "
+
+        f"with {len(route)} points"
+    )
+
+    # 🔥 SAVE ROUTE INTO VEHICLE
+
+    best_vehicle.route_data = route
+
+    best_vehicle.route_index = 0
+
+    best_vehicle.current_order = order
+
+    best_vehicle.is_moving = True
+
+    # Mark vehicle busy
+
+    best_vehicle.is_available = False
+
+    best_vehicle.save()
+
+    # Ensure current order included
+
     if order not in nearby_orders:
-        nearby_orders.insert(0, order)
 
-    print(f"📦 Cluster size: {len(nearby_orders)}")
+        nearby_orders.insert(0, order)
 
     total_weight = 0
 
-    # 🔥 Step 4: Assign cluster orders
+    assigned_count = 0
+
+    # 🔥 STEP 5:
+    # Assign clustered orders
+
     for o in nearby_orders:
+
+        # Skip already assigned
 
         if o.assigned_vehicle:
             continue
 
-        if total_weight + o.weight <= best_vehicle.capacity:
+        # Capacity check
+
+        if (
+
+            total_weight + o.weight
+
+            <= best_vehicle.capacity
+        ):
+
             o.assigned_vehicle = best_vehicle
+
             o.status = "assigned"
+
             o.save()
 
             total_weight += o.weight
 
-            print(f"🚚 Assigned order {o.id} → vehicle {best_vehicle.id}")
+            assigned_count += 1
+
+            print(
+
+                f"📦 Order {o.id} "
+
+                f"assigned to "
+
+                f"Vehicle {best_vehicle.id}"
+            )
+
         else:
-            print(f"⚠️ Skipping order {o.id} (capacity full)")
+
+            print(
+
+                f"⚠️ Capacity full → "
+
+                f"Skipping Order {o.id}"
+            )
+
+    print(
+
+        f"✅ Total assigned orders: "
+
+        f"{assigned_count}"
+    )
 
     return best_vehicle

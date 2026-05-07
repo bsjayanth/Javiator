@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from .models import Vehicle
 from .serializers import VehicleSerializer
 
+import random
+
 
 class VehicleListAPIView(generics.ListAPIView):
 
@@ -42,4 +44,41 @@ def fleet_kpis(request):
 
         "low_fuel_vehicles": low_fuel_vehicles,
 
+    })
+
+
+@api_view(["POST"])
+def simulate_vehicle_movement(request):
+
+    vehicles = Vehicle.objects.all()
+
+    for vehicle in vehicles:
+
+        # random GPS movement
+
+        vehicle.current_lat += random.uniform(
+            -0.002,
+            0.002
+        )
+
+        vehicle.current_lng += random.uniform(
+            -0.002,
+            0.002
+        )
+
+        # random speed
+
+        vehicle.speed = random.randint(20, 80)
+
+        # fuel reduction
+
+        vehicle.fuel_level = max(
+            0,
+            vehicle.fuel_level - random.randint(0, 2)
+        )
+
+        vehicle.save()
+
+    return Response({
+        "status": "Vehicle positions updated"
     })

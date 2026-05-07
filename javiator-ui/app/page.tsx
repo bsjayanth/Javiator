@@ -22,6 +22,15 @@ type FleetKpis = {
   low_fuel_vehicles: number;
 };
 
+type Vehicle = {
+  id: number;
+  name: string;
+  vehicle_type: string;
+  speed: number;
+  fuel_level: number;
+  driver_name: string;
+};
+
 const FleetMap = dynamic(
   () => import("./components/FleetMap"),
   {
@@ -37,6 +46,9 @@ const FleetMap = dynamic(
 export default function Home() {
 
   const [darkMode, setDarkMode] = useState(true);
+
+  const [selectedVehicle, setSelectedVehicle] =
+    useState<Vehicle | null>(null);
 
   const [kpis, setKpis] = useState<FleetKpis>({
     total_vehicles: 0,
@@ -54,8 +66,6 @@ export default function Home() {
       );
 
       const data = await response.json();
-
-      console.log(data);
 
       setKpis(data);
 
@@ -282,7 +292,9 @@ export default function Home() {
               }`}
             >
 
-              <FleetMap />
+              <FleetMap
+                setSelectedVehicle={setSelectedVehicle}
+              />
 
             </div>
 
@@ -298,53 +310,63 @@ export default function Home() {
             }`}
           >
 
-            <h2 className="text-2xl font-bold mb-6 shrink-0">
-              Live Dispatch Feed
-            </h2>
+            <div className="space-y-4">
 
-            <div className="flex flex-col gap-4 overflow-y-auto pr-1">
+              <h2 className="text-2xl font-bold">
+                Live Dispatch Feed
+              </h2>
 
-              {[
-                {
-                  order: "#4821",
-                  status: "Assigned to Truck 12"
-                },
-                {
-                  order: "#4822",
-                  status: "Route optimized by AI"
-                },
-                {
-                  order: "#4823",
-                  status: "Driver reached pickup point"
-                }
-              ].map((item, index) => (
+              {selectedVehicle ? (
 
-                <div
-                  key={index}
-                  className={`rounded-2xl p-4 border transition-all duration-300 ${
-                    darkMode
-                      ? "bg-white/5 border-white/10 hover:bg-white/10"
-                      : "bg-slate-50 border-slate-200 hover:bg-slate-100"
-                  }`}
-                >
+                <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
 
-                  <p className="font-semibold text-lg">
-                    Order {item.order}
-                  </p>
+                  <h3 className="text-2xl font-bold mb-4">
+                    🚚 {selectedVehicle.name}
+                  </h3>
 
-                  <p
-                    className={`text-sm mt-1 ${
-                      darkMode
-                        ? "text-slate-400"
-                        : "text-slate-500"
-                    }`}
-                  >
-                    {item.status}
-                  </p>
+                  <div className="space-y-3 text-lg">
+
+                    <p>
+                      Driver:
+                      <span className="font-semibold ml-2">
+                        {selectedVehicle.driver_name}
+                      </span>
+                    </p>
+
+                    <p>
+                      Type:
+                      <span className="font-semibold ml-2">
+                        {selectedVehicle.vehicle_type}
+                      </span>
+                    </p>
+
+                    <p>
+                      Speed:
+                      <span className="font-semibold ml-2">
+                        {selectedVehicle.speed} km/h
+                      </span>
+                    </p>
+
+                    <p>
+                      Fuel:
+                      <span className="font-semibold ml-2">
+                        {selectedVehicle.fuel_level}%
+                      </span>
+                    </p>
+
+                  </div>
 
                 </div>
 
-              ))}
+              ) : (
+
+                <div className="text-gray-400">
+
+                  Select a vehicle from map
+
+                </div>
+
+              )}
 
             </div>
 

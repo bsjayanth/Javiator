@@ -2,7 +2,8 @@ from django.urls import path
 
 from .views import (
     VehicleListAPIView,
-    fleet_kpis
+    fleet_kpis,
+    simulate_vehicle_movement
 )
 
 urlpatterns = [
@@ -17,6 +18,12 @@ urlpatterns = [
         "kpis/",
         fleet_kpis,
         name="fleet-kpis"
+    ),
+
+    path(
+        "simulate/",
+        simulate_vehicle_movement,
+        name="simulate-vehicles"
     ),
 
 ]

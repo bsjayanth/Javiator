@@ -2,8 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-import AnalyticsDashboard
-from "./components/AnalyticsDashboard";
+import AnalyticsDashboard from "./components/AnalyticsDashboard";
 
 import {
   Truck,
@@ -34,19 +33,12 @@ type FleetKpis = {
 
 type Vehicle = {
   id: number;
-
   name: string;
-
   vehicle_type: string;
-
   speed: number;
-
   fuel_level: number;
-
   driver_name: string;
-
   remaining_distance: number;
-
   eta_minutes: number;
 };
 
@@ -56,11 +48,8 @@ const FleetMap = dynamic(
     ssr: false,
 
     loading: () => (
-
       <div className="h-full w-full flex items-center justify-center text-slate-400 bg-[#0F172A]">
-
         Loading Smart Fleet Map...
-
       </div>
     ),
   }
@@ -81,6 +70,8 @@ export default function Home() {
       moving_vehicles: 0,
       low_fuel_vehicles: 0,
     });
+
+  // 🔥 FETCH KPI DATA
 
   const fetchKpis = async () => {
 
@@ -113,14 +104,15 @@ export default function Home() {
 
     }, 5000);
 
-    return () => clearInterval(interval);
+    return () =>
+      clearInterval(interval);
 
   }, []);
 
   return (
 
     <main
-      className={`h-screen w-screen overflow-hidden flex transition-all duration-300 ${
+      className={`h-screen w-screen overflow-hidden flex ${
         darkMode
           ? "bg-[#071018] text-white"
           : "bg-[#F3F7FC] text-black"
@@ -130,7 +122,7 @@ export default function Home() {
       {/* SIDEBAR */}
 
       <div
-        className={`w-[95px] border-r flex flex-col items-center py-8 gap-8 backdrop-blur-3xl ${
+        className={`w-[90px] border-r flex flex-col items-center py-8 gap-8 ${
           darkMode
             ? "bg-white/5 border-white/10"
             : "bg-white border-slate-200"
@@ -150,7 +142,7 @@ export default function Home() {
 
           <button
             key={index}
-            className={`p-4 rounded-2xl transition-all duration-300 hover:scale-110 ${
+            className={`p-4 rounded-2xl transition-all hover:scale-110 ${
               index === 0
                 ? "bg-[#00E5A8] text-black shadow-lg shadow-[#00E5A8]/30"
                 : darkMode
@@ -174,10 +166,10 @@ export default function Home() {
         {/* TOPBAR */}
 
         <div
-          className={`h-[85px] border-b flex items-center justify-between px-8 backdrop-blur-2xl ${
+          className={`h-[85px] border-b flex items-center justify-between px-8 ${
             darkMode
               ? "bg-white/5 border-white/10"
-              : "bg-white/80 border-slate-200"
+              : "bg-white border-slate-200"
           }`}
         >
 
@@ -189,13 +181,7 @@ export default function Home() {
 
             </h1>
 
-            <p
-              className={`mt-1 text-sm ${
-                darkMode
-                  ? "text-slate-400"
-                  : "text-slate-500"
-              }`}
-            >
+            <p className="text-slate-400 text-sm mt-1">
 
               AI-Powered Logistics Intelligence Platform
 
@@ -219,7 +205,7 @@ export default function Home() {
 
               <input
                 placeholder="Search vehicles..."
-                className="bg-transparent outline-none text-sm w-full placeholder:text-slate-500"
+                className="bg-transparent outline-none text-sm w-full"
               />
 
             </div>
@@ -227,8 +213,10 @@ export default function Home() {
             {/* THEME */}
 
             <button
-              onClick={() => setDarkMode(!darkMode)}
-              className={`p-3 rounded-2xl transition-all ${
+              onClick={() =>
+                setDarkMode(!darkMode)
+              }
+              className={`p-3 rounded-2xl ${
                 darkMode
                   ? "bg-white/5 border border-white/10"
                   : "bg-white border border-slate-200"
@@ -236,16 +224,20 @@ export default function Home() {
             >
 
               {darkMode ? (
+
                 <Sun className="w-5 h-5" />
+
               ) : (
+
                 <Moon className="w-5 h-5" />
+
               )}
 
             </button>
 
             {/* ALERT */}
 
-            <button className="bg-[#00E5A8] text-black p-3 rounded-2xl shadow-lg shadow-[#00E5A8]/30 hover:scale-105 transition">
+            <button className="bg-[#00E5A8] text-black p-3 rounded-2xl shadow-lg shadow-[#00E5A8]/30">
 
               <Bell className="w-5 h-5" />
 
@@ -261,9 +253,9 @@ export default function Home() {
 
           {/* LEFT */}
 
-          <div className="col-span-9 flex flex-col gap-6 overflow-y-auto pr-2">
+          <div className="col-span-9 flex flex-col gap-6 overflow-y-auto">
 
-            {/* KPI CARDS */}
+            {/* KPI */}
 
             <div className="grid grid-cols-4 gap-5">
 
@@ -303,7 +295,7 @@ export default function Home() {
 
                   <div
                     key={index}
-                    className={`rounded-3xl p-6 border backdrop-blur-2xl shadow-xl transition-all hover:scale-[1.02] ${
+                    className={`rounded-3xl p-6 border ${
                       darkMode
                         ? "bg-white/5 border-white/10"
                         : "bg-white border-slate-200"
@@ -314,13 +306,7 @@ export default function Home() {
 
                       <div>
 
-                        <p
-                          className={`text-sm ${
-                            darkMode
-                              ? "text-slate-400"
-                              : "text-slate-500"
-                          }`}
-                        >
+                        <p className="text-sm text-slate-400">
 
                           {item.title}
 
@@ -357,7 +343,7 @@ export default function Home() {
             {/* MAP */}
 
             <div
-              className={`rounded-3xl overflow-hidden border shadow-2xl min-h-[780px] ${
+              className={`rounded-3xl overflow-hidden border min-h-[780px] ${
                 darkMode
                   ? "border-white/10 bg-[#0F172A]"
                   : "border-slate-200 bg-white"
@@ -365,6 +351,10 @@ export default function Home() {
             >
 
               <FleetMap
+                selectedVehicle={
+                  selectedVehicle
+                }
+
                 setSelectedVehicle={
                   setSelectedVehicle
                 }
@@ -377,7 +367,7 @@ export default function Home() {
           {/* RIGHT PANEL */}
 
           <div
-            className={`col-span-3 rounded-3xl border p-6 overflow-y-auto backdrop-blur-3xl ${
+            className={`col-span-3 rounded-3xl border p-6 overflow-y-auto ${
               darkMode
                 ? "bg-white/5 border-white/10"
                 : "bg-white border-slate-200"
@@ -394,7 +384,7 @@ export default function Home() {
 
                 </h2>
 
-                <p className="text-slate-400 mt-1 text-sm">
+                <p className="text-slate-400 text-sm mt-1">
 
                   Real-time fleet intelligence feed
 
@@ -440,77 +430,99 @@ export default function Home() {
 
                   <div className="space-y-4">
 
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between">
 
                       <span className="text-slate-400">
+
                         Driver
+
                       </span>
 
                       <span className="font-bold">
+
                         {selectedVehicle.driver_name}
+
                       </span>
 
                     </div>
 
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between">
 
                       <span className="text-slate-400">
+
                         Speed
+
                       </span>
 
                       <span className="font-bold">
-                        {selectedVehicle.speed} km/h
+
+                        {selectedVehicle.speed?.toFixed(
+                          0
+                        )} km/h
+
                       </span>
 
                     </div>
 
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between">
 
                       <span className="text-slate-400">
+
                         Fuel
+
                       </span>
 
                       <span className="font-bold text-green-400">
-                        {selectedVehicle.fuel_level}%
+
+                        {selectedVehicle.fuel_level?.toFixed(
+                          1
+                        )}%
+
                       </span>
 
                     </div>
 
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between">
 
                       <span className="text-slate-400">
+
                         ETA
+
                       </span>
 
                       <span className="font-bold text-blue-400 flex items-center gap-2">
 
                         <Timer className="w-4 h-4" />
 
-                        {selectedVehicle.eta_minutes} mins
+                        {selectedVehicle.eta_minutes?.toFixed(
+                          1
+                        )} mins
 
                       </span>
 
                     </div>
 
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between">
 
                       <span className="text-slate-400">
+
                         Remaining Distance
+
                       </span>
 
                       <span className="font-bold text-yellow-400 flex items-center gap-2">
 
                         <MapPinned className="w-4 h-4" />
 
-                        {selectedVehicle.remaining_distance} km
+                        {selectedVehicle.remaining_distance?.toFixed(
+                          1
+                        )} km
 
                       </span>
 
                     </div>
 
                   </div>
-
-                  {/* STATUS */}
 
                   <div className="mt-8 rounded-2xl bg-[#00E5A8]/10 border border-[#00E5A8]/20 p-4 flex items-center gap-3">
 
@@ -541,7 +553,6 @@ export default function Home() {
                   <p className="text-slate-400">
 
                     Select a vehicle from the map
-                    to view live logistics intelligence
 
                   </p>
 

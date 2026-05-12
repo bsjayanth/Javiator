@@ -2,6 +2,12 @@ from celery import shared_task
 
 from fleet.models import Vehicle
 
+from channels.layers import get_channel_layer
+
+from asgiref.sync import async_to_sync
+
+from fleet.serializers import VehicleSerializer
+
 
 @shared_task
 def update_vehicle_locations():
@@ -62,6 +68,32 @@ def update_vehicle_locations():
 
             vehicle.save()
 
+            # 🔥 SEND FINAL UPDATE
+
+            channel_layer = (
+                get_channel_layer()
+            )
+
+            vehicle_data = (
+                VehicleSerializer(
+                    vehicle
+                ).data
+            )
+
+            async_to_sync(
+                channel_layer.group_send
+            )(
+                "fleet_tracking",
+
+                {
+                    "type":
+                    "send_vehicle_update",
+
+                    "data":
+                    vehicle_data,
+                }
+            )
+
             continue
 
         # ✅ MOVE VEHICLE
@@ -111,7 +143,7 @@ def update_vehicle_locations():
             2
         )
 
-        # ETA FORMULA
+        # ✅ ETA FORMULA
 
         if vehicle.speed > 0:
 
@@ -191,6 +223,32 @@ def update_vehicle_locations():
             )
 
         vehicle.save()
+
+        # 🔥 SEND LIVE WEBSOCKET UPDATE
+
+        channel_layer = (
+            get_channel_layer()
+        )
+
+        vehicle_data = (
+            VehicleSerializer(
+                vehicle
+            ).data
+        )
+
+        async_to_sync(
+            channel_layer.group_send
+        )(
+            "fleet_tracking",
+
+            {
+                "type":
+                "send_vehicle_update",
+
+                "data":
+                vehicle_data,
+            }
+        )
 
         print(
 

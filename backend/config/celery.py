@@ -44,14 +44,4 @@ app.conf.beat_schedule = {
 
         'schedule': 1.0,
     },
-
-    # Delivery lifecycle simulation
-
-    'delivery-simulation-every-10-seconds': {
-
-        'task':
-        'dispatch.tasks.run_delivery_simulation',
-
-        'schedule': 10.0,
-    },
 }

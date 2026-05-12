@@ -2,6 +2,9 @@
 
 import dynamic from "next/dynamic";
 
+import AnalyticsDashboard
+from "./components/AnalyticsDashboard";
+
 import {
   Truck,
   Package,
@@ -10,10 +13,17 @@ import {
   Search,
   Bell,
   Moon,
-  Sun
+  Sun,
+  Fuel,
+  Timer,
+  MapPinned,
+  ShieldCheck,
 } from "lucide-react";
 
-import { useState, useEffect } from "react";
+import {
+  useState,
+  useEffect,
+} from "react";
 
 type FleetKpis = {
   total_vehicles: number;
@@ -24,20 +34,33 @@ type FleetKpis = {
 
 type Vehicle = {
   id: number;
+
   name: string;
+
   vehicle_type: string;
+
   speed: number;
+
   fuel_level: number;
+
   driver_name: string;
+
+  remaining_distance: number;
+
+  eta_minutes: number;
 };
 
 const FleetMap = dynamic(
   () => import("./components/FleetMap"),
   {
     ssr: false,
+
     loading: () => (
+
       <div className="h-full w-full flex items-center justify-center text-slate-400 bg-[#0F172A]">
-        Loading Map...
+
+        Loading Smart Fleet Map...
+
       </div>
     ),
   }
@@ -45,17 +68,19 @@ const FleetMap = dynamic(
 
 export default function Home() {
 
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] =
+    useState(true);
 
   const [selectedVehicle, setSelectedVehicle] =
     useState<Vehicle | null>(null);
 
-  const [kpis, setKpis] = useState<FleetKpis>({
-    total_vehicles: 0,
-    active_vehicles: 0,
-    moving_vehicles: 0,
-    low_fuel_vehicles: 0,
-  });
+  const [kpis, setKpis] =
+    useState<FleetKpis>({
+      total_vehicles: 0,
+      active_vehicles: 0,
+      moving_vehicles: 0,
+      low_fuel_vehicles: 0,
+    });
 
   const fetchKpis = async () => {
 
@@ -75,9 +100,7 @@ export default function Home() {
         "KPI fetch error:",
         error
       );
-
     }
-
   };
 
   useEffect(() => {
@@ -99,46 +122,48 @@ export default function Home() {
     <main
       className={`h-screen w-screen overflow-hidden flex transition-all duration-300 ${
         darkMode
-          ? "bg-[#0B1220] text-white"
-          : "bg-[#F4F7FB] text-black"
+          ? "bg-[#071018] text-white"
+          : "bg-[#F3F7FC] text-black"
       }`}
     >
 
       {/* SIDEBAR */}
 
       <div
-        className={`w-[90px] backdrop-blur-2xl border-r flex flex-col items-center py-6 gap-8 transition-all duration-300 ${
+        className={`w-[95px] border-r flex flex-col items-center py-8 gap-8 backdrop-blur-3xl ${
           darkMode
             ? "bg-white/5 border-white/10"
             : "bg-white border-slate-200"
         }`}
       >
 
-        <div className="text-3xl font-bold">
+        <div className="text-4xl">
           🚚
         </div>
 
-        <button
-          className={`p-3 rounded-2xl border transition ${
-            darkMode
-              ? "bg-[#00E5A8]/10 border-[#00E5A8]/20"
-              : "bg-[#00E5A8]/20 border-[#00E5A8]/30"
-          }`}
-        >
-          <Truck className="w-6 h-6 text-[#00E5A8]" />
-        </button>
+        {[
+          Truck,
+          Package,
+          Activity,
+          BarChart3,
+        ].map((Icon, index) => (
 
-        <button className="p-3 rounded-2xl hover:bg-black/5 transition">
-          <Package className="w-6 h-6 text-slate-400" />
-        </button>
+          <button
+            key={index}
+            className={`p-4 rounded-2xl transition-all duration-300 hover:scale-110 ${
+              index === 0
+                ? "bg-[#00E5A8] text-black shadow-lg shadow-[#00E5A8]/30"
+                : darkMode
+                ? "bg-white/5 hover:bg-white/10"
+                : "bg-slate-100 hover:bg-slate-200"
+            }`}
+          >
 
-        <button className="p-3 rounded-2xl hover:bg-black/5 transition">
-          <Activity className="w-6 h-6 text-slate-400" />
-        </button>
+            <Icon className="w-6 h-6" />
 
-        <button className="p-3 rounded-2xl hover:bg-black/5 transition">
-          <BarChart3 className="w-6 h-6 text-slate-400" />
-        </button>
+          </button>
+
+        ))}
 
       </div>
 
@@ -149,27 +174,31 @@ export default function Home() {
         {/* TOPBAR */}
 
         <div
-          className={`h-[80px] border-b backdrop-blur-xl flex items-center justify-between px-8 shrink-0 transition-all duration-300 ${
+          className={`h-[85px] border-b flex items-center justify-between px-8 backdrop-blur-2xl ${
             darkMode
-              ? "border-white/10 bg-white/5"
-              : "border-slate-200 bg-white/70"
+              ? "bg-white/5 border-white/10"
+              : "bg-white/80 border-slate-200"
           }`}
         >
 
           <div>
 
-            <h1 className="text-4xl font-bold tracking-tight">
+            <h1 className="text-5xl font-black tracking-tight">
+
               Javiator OS
+
             </h1>
 
             <p
-              className={`text-sm mt-1 ${
+              className={`mt-1 text-sm ${
                 darkMode
                   ? "text-slate-400"
                   : "text-slate-500"
               }`}
             >
-              Intelligent Logistics Operating System
+
+              AI-Powered Logistics Intelligence Platform
+
             </p>
 
           </div>
@@ -179,10 +208,10 @@ export default function Home() {
             {/* SEARCH */}
 
             <div
-              className={`rounded-2xl px-4 py-2 flex items-center gap-2 w-[260px] border transition-all ${
+              className={`w-[280px] flex items-center gap-3 px-5 py-3 rounded-2xl border ${
                 darkMode
-                  ? "bg-white/10 border-white/10"
-                  : "bg-white border-slate-300"
+                  ? "bg-white/5 border-white/10"
+                  : "bg-white border-slate-200"
               }`}
             >
 
@@ -195,14 +224,14 @@ export default function Home() {
 
             </div>
 
-            {/* THEME TOGGLE */}
+            {/* THEME */}
 
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className={`p-3 rounded-2xl border transition-all ${
+              className={`p-3 rounded-2xl transition-all ${
                 darkMode
-                  ? "bg-white/10 border-white/10"
-                  : "bg-white border-slate-300"
+                  ? "bg-white/5 border border-white/10"
+                  : "bg-white border border-slate-200"
               }`}
             >
 
@@ -214,9 +243,9 @@ export default function Home() {
 
             </button>
 
-            {/* NOTIFICATION */}
+            {/* ALERT */}
 
-            <button className="bg-[#00E5A8] hover:scale-105 transition text-black p-3 rounded-2xl">
+            <button className="bg-[#00E5A8] text-black p-3 rounded-2xl shadow-lg shadow-[#00E5A8]/30 hover:scale-105 transition">
 
               <Bell className="w-5 h-5" />
 
@@ -226,66 +255,109 @@ export default function Home() {
 
         </div>
 
-        {/* DASHBOARD */}
+        {/* CONTENT */}
 
         <div className="flex-1 grid grid-cols-12 gap-6 p-6 overflow-hidden">
 
-          {/* LEFT SECTION */}
+          {/* LEFT */}
 
-          <div className="col-span-9 flex flex-col gap-6 overflow-hidden">
+          <div className="col-span-9 flex flex-col gap-6 overflow-y-auto pr-2">
 
-            {/* KPI */}
+            {/* KPI CARDS */}
 
-            <div className="grid grid-cols-3 gap-6 shrink-0">
+            <div className="grid grid-cols-4 gap-5">
 
               {[
                 {
-                  title: "Active Vehicles",
-                  value: kpis.active_vehicles
+                  title: "Active Fleet",
+                  value: kpis.active_vehicles,
+                  icon: Truck,
+                  color: "text-[#00E5A8]",
                 },
+
                 {
                   title: "Moving Vehicles",
-                  value: kpis.moving_vehicles
+                  value: kpis.moving_vehicles,
+                  icon: Activity,
+                  color: "text-blue-400",
                 },
+
                 {
                   title: "Total Vehicles",
-                  value: kpis.total_vehicles
-                }
-              ].map((item, index) => (
+                  value: kpis.total_vehicles,
+                  icon: Package,
+                  color: "text-yellow-400",
+                },
 
-                <div
-                  key={index}
-                  className={`backdrop-blur-xl rounded-3xl p-6 shadow-lg border transition-all duration-300 ${
-                    darkMode
-                      ? "bg-white/5 border-white/10"
-                      : "bg-white border-slate-200"
-                  }`}
-                >
+                {
+                  title: "Low Fuel Alerts",
+                  value: kpis.low_fuel_vehicles,
+                  icon: Fuel,
+                  color: "text-red-400",
+                },
+              ].map((item, index) => {
 
-                  <p
-                    className={`text-sm ${
+                const Icon = item.icon;
+
+                return (
+
+                  <div
+                    key={index}
+                    className={`rounded-3xl p-6 border backdrop-blur-2xl shadow-xl transition-all hover:scale-[1.02] ${
                       darkMode
-                        ? "text-slate-400"
-                        : "text-slate-500"
+                        ? "bg-white/5 border-white/10"
+                        : "bg-white border-slate-200"
                     }`}
                   >
-                    {item.title}
-                  </p>
 
-                  <h2 className="text-5xl font-bold mt-3">
-                    {item.value}
-                  </h2>
+                    <div className="flex items-center justify-between">
 
-                </div>
+                      <div>
 
-              ))}
+                        <p
+                          className={`text-sm ${
+                            darkMode
+                              ? "text-slate-400"
+                              : "text-slate-500"
+                          }`}
+                        >
+
+                          {item.title}
+
+                        </p>
+
+                        <h2 className="text-5xl font-black mt-3">
+
+                          {item.value}
+
+                        </h2>
+
+                      </div>
+
+                      <div
+                        className={`p-4 rounded-2xl bg-black/20 ${item.color}`}
+                      >
+
+                        <Icon className="w-7 h-7" />
+
+                      </div>
+
+                    </div>
+
+                  </div>
+                );
+              })}
 
             </div>
+
+            {/* ANALYTICS */}
+
+            <AnalyticsDashboard />
 
             {/* MAP */}
 
             <div
-              className={`flex-1 min-h-[700px] rounded-3xl overflow-hidden border shadow-2xl transition-all duration-300 ${
+              className={`rounded-3xl overflow-hidden border shadow-2xl min-h-[780px] ${
                 darkMode
                   ? "border-white/10 bg-[#0F172A]"
                   : "border-slate-200 bg-white"
@@ -293,7 +365,9 @@ export default function Home() {
             >
 
               <FleetMap
-                setSelectedVehicle={setSelectedVehicle}
+                setSelectedVehicle={
+                  setSelectedVehicle
+                }
               />
 
             </div>
@@ -303,55 +377,149 @@ export default function Home() {
           {/* RIGHT PANEL */}
 
           <div
-            className={`col-span-3 backdrop-blur-xl rounded-3xl p-6 flex flex-col overflow-hidden border transition-all duration-300 ${
+            className={`col-span-3 rounded-3xl border p-6 overflow-y-auto backdrop-blur-3xl ${
               darkMode
                 ? "bg-white/5 border-white/10"
                 : "bg-white border-slate-200"
             }`}
           >
 
-            <div className="space-y-4">
+            <div className="space-y-6">
 
-              <h2 className="text-2xl font-bold">
-                Live Dispatch Feed
-              </h2>
+              <div>
+
+                <h2 className="text-3xl font-black">
+
+                  Live Dispatch
+
+                </h2>
+
+                <p className="text-slate-400 mt-1 text-sm">
+
+                  Real-time fleet intelligence feed
+
+                </p>
+
+              </div>
 
               {selectedVehicle ? (
 
-                <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
+                <div
+                  className={`rounded-3xl p-6 border ${
+                    darkMode
+                      ? "bg-white/5 border-white/10"
+                      : "bg-slate-50 border-slate-200"
+                  }`}
+                >
 
-                  <h3 className="text-2xl font-bold mb-4">
-                    🚚 {selectedVehicle.name}
-                  </h3>
+                  <div className="flex items-center gap-4 mb-6">
 
-                  <div className="space-y-3 text-lg">
+                    <div className="bg-[#00E5A8] text-black p-4 rounded-2xl">
 
-                    <p>
-                      Driver:
-                      <span className="font-semibold ml-2">
+                      <Truck className="w-7 h-7" />
+
+                    </div>
+
+                    <div>
+
+                      <h3 className="text-2xl font-black">
+
+                        {selectedVehicle.name}
+
+                      </h3>
+
+                      <p className="text-slate-400">
+
+                        {selectedVehicle.vehicle_type}
+
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  <div className="space-y-4">
+
+                    <div className="flex justify-between items-center">
+
+                      <span className="text-slate-400">
+                        Driver
+                      </span>
+
+                      <span className="font-bold">
                         {selectedVehicle.driver_name}
                       </span>
-                    </p>
 
-                    <p>
-                      Type:
-                      <span className="font-semibold ml-2">
-                        {selectedVehicle.vehicle_type}
+                    </div>
+
+                    <div className="flex justify-between items-center">
+
+                      <span className="text-slate-400">
+                        Speed
                       </span>
-                    </p>
 
-                    <p>
-                      Speed:
-                      <span className="font-semibold ml-2">
+                      <span className="font-bold">
                         {selectedVehicle.speed} km/h
                       </span>
-                    </p>
 
-                    <p>
-                      Fuel:
-                      <span className="font-semibold ml-2">
+                    </div>
+
+                    <div className="flex justify-between items-center">
+
+                      <span className="text-slate-400">
+                        Fuel
+                      </span>
+
+                      <span className="font-bold text-green-400">
                         {selectedVehicle.fuel_level}%
                       </span>
+
+                    </div>
+
+                    <div className="flex justify-between items-center">
+
+                      <span className="text-slate-400">
+                        ETA
+                      </span>
+
+                      <span className="font-bold text-blue-400 flex items-center gap-2">
+
+                        <Timer className="w-4 h-4" />
+
+                        {selectedVehicle.eta_minutes} mins
+
+                      </span>
+
+                    </div>
+
+                    <div className="flex justify-between items-center">
+
+                      <span className="text-slate-400">
+                        Remaining Distance
+                      </span>
+
+                      <span className="font-bold text-yellow-400 flex items-center gap-2">
+
+                        <MapPinned className="w-4 h-4" />
+
+                        {selectedVehicle.remaining_distance} km
+
+                      </span>
+
+                    </div>
+
+                  </div>
+
+                  {/* STATUS */}
+
+                  <div className="mt-8 rounded-2xl bg-[#00E5A8]/10 border border-[#00E5A8]/20 p-4 flex items-center gap-3">
+
+                    <ShieldCheck className="w-5 h-5 text-[#00E5A8]" />
+
+                    <p className="text-sm text-[#00E5A8]">
+
+                      Vehicle operating normally
+
                     </p>
 
                   </div>
@@ -360,9 +528,22 @@ export default function Home() {
 
               ) : (
 
-                <div className="text-gray-400">
+                <div
+                  className={`rounded-3xl p-8 border text-center ${
+                    darkMode
+                      ? "bg-white/5 border-white/10"
+                      : "bg-slate-50 border-slate-200"
+                  }`}
+                >
 
-                  Select a vehicle from map
+                  <Truck className="w-12 h-12 mx-auto text-slate-500 mb-4" />
+
+                  <p className="text-slate-400">
+
+                    Select a vehicle from the map
+                    to view live logistics intelligence
+
+                  </p>
 
                 </div>
 

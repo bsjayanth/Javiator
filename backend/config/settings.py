@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'orders',
     'dispatch',
     'tracking',
+    'analytics',
 ]
 
 # -------------------------------

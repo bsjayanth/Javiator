@@ -14,22 +14,18 @@ def update_vehicle_locations():
 
         route = vehicle.route_data
 
-        # No route found
         if not route:
-
-            print(
-                f"❌ Vehicle {vehicle.id} "
-                f"has no route"
-            )
 
             continue
 
-        # Route completed
-        if vehicle.route_index >= len(route):
+        total_points = len(route)
+
+        # ✅ ROUTE COMPLETED
+
+        if vehicle.route_index >= total_points:
 
             print(
-                f"✅ Vehicle {vehicle.id} "
-                f"completed route"
+                f"✅ Vehicle {vehicle.id} completed route"
             )
 
             vehicle.is_moving = False
@@ -38,41 +34,166 @@ def update_vehicle_locations():
 
             vehicle.route_data = []
 
+            vehicle.speed = 0
+
             vehicle.is_available = True
+
+            vehicle.remaining_distance = 0
+
+            vehicle.eta_minutes = 0
+
+            # COMPLETE ORDER
+
+            if vehicle.current_order:
+
+                order = vehicle.current_order
+
+                order.status = "delivered"
+
+                order.delivery_completed = True
+
+                order.save()
+
+                print(
+                    f"📦 Order {order.id} delivered"
+                )
+
+            vehicle.current_order = None
 
             vehicle.save()
 
             continue
 
-        # Current route point
-        point = route[vehicle.route_index]
+        # ✅ MOVE VEHICLE
 
-        # Update vehicle coordinates
+        point = route[
+            vehicle.route_index
+        ]
+
         vehicle.current_lat = point[0]
 
         vehicle.current_lng = point[1]
 
-        # Smooth movement speed
-        vehicle.speed = 35
+        # ✅ ROUTE MOVEMENT SPEED
 
-        # Fuel consumption
+        vehicle.route_index += 8
+
+        # ✅ DYNAMIC SPEED SIMULATION
+
+        vehicle.speed = 60 + (
+            vehicle.route_index % 40
+        )
+
+        # ✅ FUEL CONSUMPTION
+
         vehicle.fuel_level = max(
-            vehicle.fuel_level - 0.05,
+
+            vehicle.fuel_level - 0.3,
+
             0
         )
 
-        # Move to next point
-        vehicle.route_index += 1
+        # ✅ ETA + REMAINING DISTANCE
+
+        remaining_points = (
+
+            total_points
+            - vehicle.route_index
+        )
+
+        # ASSUME:
+        # 1 route point ≈ 50 meters
+
+        vehicle.remaining_distance = round(
+
+            remaining_points * 0.05,
+
+            2
+        )
+
+        # ETA FORMULA
+
+        if vehicle.speed > 0:
+
+            vehicle.eta_minutes = round(
+
+                (
+                    vehicle.remaining_distance
+                    / vehicle.speed
+                ) * 60,
+
+                2
+            )
+
+        else:
+
+            vehicle.eta_minutes = 0
+
+        # ✅ ROUTE PROGRESS %
+
+        progress = (
+
+            vehicle.route_index
+            / total_points
+
+        ) * 100
+
+        # ✅ PICKUP STARTED
+
+        if (
+
+            vehicle.current_order
+
+            and progress >= 30
+
+            and vehicle.current_order.status
+            == "assigned"
+        ):
+
+            vehicle.current_order.status = (
+                "pickup_started"
+            )
+
+            vehicle.current_order.save()
+
+            print(
+
+                f"📦 Pickup started "
+                f"for Order "
+                f"{vehicle.current_order.id}"
+            )
+
+        # ✅ IN TRANSIT
+
+        if (
+
+            vehicle.current_order
+
+            and progress >= 60
+
+            and vehicle.current_order.status
+            == "pickup_started"
+        ):
+
+            vehicle.current_order.status = (
+                "in_transit"
+            )
+
+            vehicle.current_order.pickup_completed = True
+
+            vehicle.current_order.save()
+
+            print(
+
+                f"🚚 Order "
+                f"{vehicle.current_order.id} "
+                f"is in transit"
+            )
 
         vehicle.save()
 
         print(
 
-            f"🚚 Vehicle {vehicle.id} "
-
-            f"moved to point "
-
-            f"{vehicle.route_index}/"
-
-            f"{len(route)}"
+            f"🚚 Vehicle {vehicle.id} moved "
+            f"{vehicle.route_index}/{total_points}"
         )

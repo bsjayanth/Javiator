@@ -30,21 +30,31 @@ class Vehicle(models.Model):
         default=77.5946
     )
 
+    # CURRENT SPEED (km/h)
+
     speed = models.FloatField(
         default=40
     )
+
+    # FUEL %
 
     fuel_level = models.FloatField(
         default=100
     )
 
+    # VEHICLE LOAD CAPACITY (kg)
+
     capacity = models.FloatField(
         default=1000
     )
 
+    # AVAILABLE FOR NEW ORDERS
+
     is_available = models.BooleanField(
         default=True
     )
+
+    # CURRENTLY MOVING
 
     is_moving = models.BooleanField(
         default=False
@@ -55,20 +65,20 @@ class Vehicle(models.Model):
         default="Unknown Driver"
     )
 
-    # 🚚 ACTIVE DELIVERY ROUTE
+    # ACTIVE DELIVERY ROUTE
 
     route_data = models.JSONField(
         default=list,
         blank=True
     )
 
-    # Current position in route array
+    # CURRENT POSITION IN ROUTE
 
     route_index = models.IntegerField(
         default=0
     )
 
-    # Current active order
+    # CURRENT ACTIVE ORDER
 
     current_order = models.ForeignKey(
         "orders.Order",
@@ -76,6 +86,20 @@ class Vehicle(models.Model):
         null=True,
         blank=True,
         related_name="active_vehicle"
+    )
+
+    # ETA SYSTEM
+
+    # REMAINING DISTANCE (km)
+
+    remaining_distance = models.FloatField(
+        default=0
+    )
+
+    # ESTIMATED TIME OF ARRIVAL (minutes)
+
+    eta_minutes = models.FloatField(
+        default=0
     )
 
     updated_at = models.DateTimeField(

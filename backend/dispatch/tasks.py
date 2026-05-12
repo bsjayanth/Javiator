@@ -4,9 +4,6 @@ from orders.models import Order
 
 from dispatch.services import assign_vehicle
 
-from .delivery_simulator import (
-    simulate_delivery_progress
-)
 
 
 @shared_task
@@ -32,13 +29,3 @@ def auto_dispatch():
         )
 
         assign_vehicle(order.id)
-
-
-@shared_task
-def run_delivery_simulation():
-
-    print(
-        "🚚 DELIVERY SIMULATION RUNNING"
-    )
-
-    simulate_delivery_progress()

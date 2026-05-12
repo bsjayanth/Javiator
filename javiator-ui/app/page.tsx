@@ -32,14 +32,32 @@ type FleetKpis = {
 };
 
 type Vehicle = {
+
   id: number;
+
   name: string;
+
   vehicle_type: string;
+
   speed: number;
+
   fuel_level: number;
+
   driver_name: string;
+
   remaining_distance: number;
+
   eta_minutes: number;
+
+  current_lat: number;
+
+  current_lng: number;
+
+  is_moving: boolean;
+
+  route_data: [number, number][];
+
+  route_index: number;
 };
 
 const FleetMap = dynamic(

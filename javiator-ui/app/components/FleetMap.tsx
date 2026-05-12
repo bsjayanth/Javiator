@@ -146,7 +146,7 @@ export default function FleetMap({
     Record<number, [number, number]>
   >({});
 
-  // 🚚 GET VEHICLE POSITION
+  // 🚚 GET CURRENT POSITION
 
   const getVehiclePosition = (
     vehicle: Vehicle
@@ -222,7 +222,7 @@ export default function FleetMap({
     }
   };
 
-  // 🔥 STABLE WEBSOCKET
+  // 🚀 INITIAL LOAD + WEBSOCKET
 
   useEffect(() => {
 
@@ -242,9 +242,6 @@ export default function FleetMap({
     };
 
     socket.onclose = (event) => {
-
-      // Ignore harmless
-      // React dev reconnects
 
       if (!event.wasClean) {
 
@@ -279,53 +276,16 @@ export default function FleetMap({
               existingVehicle
             );
 
-            const updatedList =
-              prevVehicles.map(
-                (vehicle) =>
+            return prevVehicles.map(
+              (vehicle) =>
 
-                  vehicle.id ===
-                  updatedVehicle.id
+                vehicle.id ===
+                updatedVehicle.id
 
-                    ? updatedVehicle
+                  ? updatedVehicle
 
-                    : vehicle
-              );
-
-            // 🔥 UPDATE LIVE SIDEBAR
-
-            setSelectedVehicle(
-              (prevSelected) => {
-
-                if (
-                  prevSelected?.id ===
-                  updatedVehicle.id
-                ) {
-
-                  return updatedVehicle;
-                }
-
-                return prevSelected;
-              }
+                  : vehicle
             );
-
-            // 🔥 UPDATE FOLLOW MODE
-
-            setFocusedVehicle(
-              (prevFocused) => {
-
-                if (
-                  prevFocused?.id ===
-                  updatedVehicle.id
-                ) {
-
-                  return updatedVehicle;
-                }
-
-                return prevFocused;
-              }
-            );
-
-            return updatedList;
           }
 
           return [
@@ -336,7 +296,7 @@ export default function FleetMap({
       );
     };
 
-    // 📦 REFRESH ORDERS ONLY
+    // 📦 REFRESH ORDERS
 
     const orderInterval =
       setInterval(() => {
@@ -353,6 +313,32 @@ export default function FleetMap({
     };
 
   }, []);
+
+  // 🔥 SAFE LIVE SIDEBAR UPDATE
+
+  useEffect(() => {
+
+    if (!selectedVehicle) return;
+
+    const latestVehicle =
+      vehicles.find(
+        (v) =>
+          v.id ===
+          selectedVehicle.id
+      );
+
+    if (latestVehicle) {
+
+      setSelectedVehicle(
+        latestVehicle
+      );
+
+      setFocusedVehicle(
+        latestVehicle
+      );
+    }
+
+  }, [vehicles]);
 
   return (
 

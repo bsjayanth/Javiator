@@ -6,47 +6,37 @@ from .utils import calculate_distance
 
 from .routing import get_route
 
+from .ai_dispatch import (
+    calculate_ai_score
+)
 
-# 🔹 VEHICLE SCORING ENGINE
+
+# 🔹 BASIC VEHICLE VALIDATION
 
 def calculate_score(vehicle, order):
 
     distance = calculate_distance(
+
         vehicle.current_lat,
         vehicle.current_lng,
+
         order.pickup_lat,
         order.pickup_lng
     )
 
-    # Vehicle cannot carry load
+    # ❌ Vehicle cannot carry load
 
     if vehicle.capacity < order.weight:
 
-        return float('inf')
+        return float("inf")
 
-    # Low fuel penalty
+    # ❌ Low fuel vehicle
 
     if vehicle.fuel_level < 15:
 
-        return float('inf')
+        return float("inf")
 
-    # Capacity utilization
-
-    capacity_util = (
-        order.weight / vehicle.capacity
-    )
-
-    # Lower score = better vehicle
-
-    score = (
-
-        distance * 0.6 +
-
-        (1 - capacity_util) * 0.4
-
-    )
-
-    return score
+    return distance
 
 
 # 🔹 CLUSTER NEARBY ORDERS
@@ -109,33 +99,39 @@ def assign_vehicle(order_id):
 
         return None
 
-    # Skip already assigned orders
+    # Skip already assigned
 
     if order.assigned_vehicle:
 
         print(
+
             f"⚠️ Order {order.id} "
+
             f"already assigned"
         )
 
         return order.assigned_vehicle
 
-    # Available vehicles only
+    # ✅ Available vehicles only
 
     vehicles = Vehicle.objects.filter(
+
         is_available=True,
+
         fuel_level__gt=10
     )
 
     if not vehicles.exists():
 
-        print("❌ No available vehicles")
+        print(
+            "❌ No available vehicles"
+        )
 
         return None
 
     best_vehicle = None
 
-    best_score = float('inf')
+    best_score = float("inf")
 
     # 🔥 STEP 1:
     # Find nearby clustered orders
@@ -145,18 +141,22 @@ def assign_vehicle(order_id):
     )
 
     print(
+
         f"📦 Nearby orders found: "
+
         f"{len(nearby_orders)}"
     )
 
     # 🔥 STEP 2:
-    # Reuse assigned nearby vehicle
+    # Reuse nearby assigned vehicle
 
     for o in nearby_orders:
 
         if o.assigned_vehicle:
 
-            best_vehicle = o.assigned_vehicle
+            best_vehicle = (
+                o.assigned_vehicle
+            )
 
             print(
 
@@ -168,15 +168,31 @@ def assign_vehicle(order_id):
             break
 
     # 🔥 STEP 3:
-    # Find best vehicle
+    # AI Vehicle Selection
 
     if not best_vehicle:
 
         for vehicle in vehicles:
 
-            score = calculate_score(
+            # Basic validation
+
+            basic_score = calculate_score(
+
                 vehicle,
                 order
+            )
+
+            if basic_score == float("inf"):
+
+                continue
+
+            # 🤖 AI SCORE
+
+            ai_score = (
+                calculate_ai_score(
+                    vehicle,
+                    order
+                )
             )
 
             print(
@@ -185,18 +201,22 @@ def assign_vehicle(order_id):
 
                 f"{vehicle.id} "
 
-                f"score: {score}"
+                f"AI Score: "
+
+                f"{ai_score}"
             )
 
-            if score < best_score:
+            if ai_score < best_score:
 
-                best_score = score
+                best_score = ai_score
 
                 best_vehicle = vehicle
 
     if not best_vehicle:
 
-        print("❌ No vehicle selected")
+        print(
+            "❌ No vehicle selected"
+        )
 
         return None
 
@@ -210,7 +230,6 @@ def assign_vehicle(order_id):
     # 🔥 STEP 4:
     # Generate FULL DELIVERY ROUTE
 
-    # ROUTE 1:
     # Vehicle → Pickup
 
     pickup_route = get_route(
@@ -222,7 +241,6 @@ def assign_vehicle(order_id):
         order.pickup_lng
     )
 
-    # ROUTE 2:
     # Pickup → Drop
 
     delivery_route = get_route(
@@ -236,7 +254,10 @@ def assign_vehicle(order_id):
 
     # 🔥 MERGE ROUTES
 
-    route = pickup_route + delivery_route
+    route = (
+        pickup_route
+        + delivery_route
+    )
 
     print(
 
@@ -245,7 +266,7 @@ def assign_vehicle(order_id):
         f"with {len(route)} points"
     )
 
-    # 🔥 SAVE ROUTE INTO VEHICLE
+    # 🔥 SAVE ROUTE
 
     best_vehicle.route_data = route
 
@@ -255,8 +276,6 @@ def assign_vehicle(order_id):
 
     best_vehicle.is_moving = True
 
-    # Mark vehicle busy
-
     best_vehicle.is_available = False
 
     best_vehicle.save()
@@ -265,7 +284,10 @@ def assign_vehicle(order_id):
 
     if order not in nearby_orders:
 
-        nearby_orders.insert(0, order)
+        nearby_orders.insert(
+            0,
+            order
+        )
 
     total_weight = 0
 
@@ -276,9 +298,10 @@ def assign_vehicle(order_id):
 
     for o in nearby_orders:
 
-        # Skip already assigned
+        # Skip assigned
 
         if o.assigned_vehicle:
+
             continue
 
         # Capacity check
@@ -290,7 +313,9 @@ def assign_vehicle(order_id):
             <= best_vehicle.capacity
         ):
 
-            o.assigned_vehicle = best_vehicle
+            o.assigned_vehicle = (
+                best_vehicle
+            )
 
             o.status = "assigned"
 
@@ -306,16 +331,20 @@ def assign_vehicle(order_id):
 
                 f"assigned to "
 
-                f"Vehicle {best_vehicle.id}"
+                f"Vehicle "
+
+                f"{best_vehicle.id}"
             )
 
         else:
 
             print(
 
-                f"⚠️ Capacity full → "
+                f"⚠️ Capacity full "
 
-                f"Skipping Order {o.id}"
+                f"Skipping Order "
+
+                f"{o.id}"
             )
 
     print(

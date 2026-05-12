@@ -60,6 +60,8 @@ INSTALLED_APPS = [
     "tracking",
 
     "analytics",
+    
+    'notifications',
 ]
 
 

@@ -12,6 +12,8 @@ class Vehicle(models.Model):
         ("van", "Van"),
     ]
 
+    # 🚚 BASIC VEHICLE INFO
+
     name = models.CharField(
         max_length=100
     )
@@ -22,6 +24,13 @@ class Vehicle(models.Model):
         default="truck"
     )
 
+    driver_name = models.CharField(
+        max_length=100,
+        default="Unknown Driver"
+    )
+
+    # 📍 LIVE LOCATION
+
     current_lat = models.FloatField(
         default=12.9716
     )
@@ -30,25 +39,25 @@ class Vehicle(models.Model):
         default=77.5946
     )
 
-    # CURRENT SPEED (km/h)
+    # ⚡ CURRENT SPEED (km/h)
 
     speed = models.FloatField(
         default=40
     )
 
-    # FUEL %
+    # ⛽ FUEL %
 
     fuel_level = models.FloatField(
         default=100
     )
 
-    # VEHICLE LOAD CAPACITY (kg)
+    # 📦 VEHICLE LOAD CAPACITY (kg)
 
     capacity = models.FloatField(
         default=1000
     )
 
-    # AVAILABLE FOR NEW ORDERS
+    # ✅ AVAILABLE FOR NEW ORDERS
 
     is_available = models.BooleanField(
         default=True
@@ -58,11 +67,6 @@ class Vehicle(models.Model):
 
     is_moving = models.BooleanField(
         default=False
-    )
-
-    driver_name = models.CharField(
-        max_length=100,
-        default="Unknown Driver"
     )
 
     # ACTIVE DELIVERY ROUTE
@@ -78,7 +82,7 @@ class Vehicle(models.Model):
         default=0
     )
 
-    # CURRENT ACTIVE ORDER
+    # 📦 CURRENT ACTIVE ORDER
 
     current_order = models.ForeignKey(
         "orders.Order",
@@ -88,7 +92,7 @@ class Vehicle(models.Model):
         related_name="active_vehicle"
     )
 
-    # ETA SYSTEM
+    # ⏱ETA SYSTEM
 
     # REMAINING DISTANCE (km)
 
@@ -102,9 +106,72 @@ class Vehicle(models.Model):
         default=0
     )
 
+    # ====================================================
+    # DRIVER INTELLIGENCE + FLEET ANALYTICS
+    # ====================================================
+
+    # TOTAL COMPLETED DELIVERIES
+
+    total_deliveries = models.IntegerField(
+        default=0
+    )
+
+    # TOTAL DISTANCE TRAVELLED (km)
+
+    total_distance = models.FloatField(
+        default=0
+    )
+
+    # DRIVER AVERAGE SPEED
+
+    avg_speed = models.FloatField(
+        default=0
+    )
+
+    # AI DRIVER PERFORMANCE SCORE
+
+    efficiency_score = models.FloatField(
+        default=100
+    )
+
+    # TOTAL FUEL CONSUMED
+
+    fuel_consumed = models.FloatField(
+        default=0
+    )
+
+    # TOTAL ACTIVE HOURS SIMULATION
+
+    active_hours = models.FloatField(
+        default=0
+    )
+
+    # DELIVERY SUCCESS RATE %
+
+    success_rate = models.FloatField(
+        default=100
+    )
+
+    # LAST DELIVERY TIME
+
+    last_delivery_at = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    # ====================================================
+
     updated_at = models.DateTimeField(
         auto_now=True
     )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+
+        ordering = ["id"]
 
     def __str__(self):
 

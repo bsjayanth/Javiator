@@ -1,23 +1,39 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import {
 
-import { LeafletTrackingMarker } from "react-leaflet-tracking-marker";
+  useEffect,
+  useState,
+  useRef,
+
+} from "react";
 
 import {
+
+  LeafletTrackingMarker,
+
+} from "react-leaflet-tracking-marker";
+
+import {
+
   MapContainer,
   TileLayer,
   Popup,
   useMap,
   Marker,
   Polyline,
+  CircleMarker,
+
 } from "react-leaflet";
 
 import L from "leaflet";
 
 import "leaflet/dist/leaflet.css";
 
+import { mapTokens } from "../styles/theme";
+
 type Vehicle = {
+
   id: number;
 
   name: string;
@@ -46,6 +62,7 @@ type Vehicle = {
 };
 
 type Order = {
+
   id: number;
 
   customer_name: string;
@@ -62,6 +79,9 @@ type Order = {
 };
 
 type FleetMapProps = {
+
+  darkMode: boolean;
+
   selectedVehicle:
     Vehicle | null;
 
@@ -71,10 +91,14 @@ type FleetMapProps = {
 };
 
 function RecenterMap({
+
   lat,
   lng,
+
 }: {
+
   lat: number;
+
   lng: number;
 }) {
 
@@ -95,6 +119,10 @@ function RecenterMap({
   return null;
 }
 
+/* ===================================================== */
+/* 🚀 ICONS */
+/* ===================================================== */
+
 const truckIcon = new L.Icon({
 
   iconUrl:
@@ -111,21 +139,23 @@ const pickupIcon = new L.Icon({
 
   iconUrl: "/icons/pickup.svg",
 
-  iconSize: [32, 32],
+  iconSize: [30, 30],
 
-  iconAnchor: [16, 32],
+  iconAnchor: [15, 30],
 });
 
 const dropIcon = new L.Icon({
 
   iconUrl: "/icons/drop.svg",
 
-  iconSize: [32, 32],
+  iconSize: [30, 30],
 
-  iconAnchor: [16, 32],
+  iconAnchor: [15, 30],
 });
 
 export default function FleetMap({
+
+  darkMode,
 
   selectedVehicle,
 
@@ -146,7 +176,9 @@ export default function FleetMap({
     Record<number, [number, number]>
   >({});
 
-  // 🚚 GET CURRENT POSITION
+  /* ===================================================== */
+  /* 🚀 POSITION */
+  /* ===================================================== */
 
   const getVehiclePosition = (
     vehicle: Vehicle
@@ -176,7 +208,9 @@ export default function FleetMap({
     ];
   };
 
-  // 🚚 FETCH VEHICLES
+  /* ===================================================== */
+  /* 🚀 FETCH VEHICLES */
+  /* ===================================================== */
 
   const fetchVehicles = async () => {
 
@@ -199,7 +233,9 @@ export default function FleetMap({
     }
   };
 
-  // 📦 FETCH ORDERS
+  /* ===================================================== */
+  /* 🚀 FETCH ORDERS */
+  /* ===================================================== */
 
   const fetchOrders = async () => {
 
@@ -222,7 +258,9 @@ export default function FleetMap({
     }
   };
 
-  // 🚀 INITIAL LOAD + WEBSOCKET
+  /* ===================================================== */
+  /* 🚀 WEBSOCKET */
+  /* ===================================================== */
 
   useEffect(() => {
 
@@ -239,16 +277,6 @@ export default function FleetMap({
       console.log(
         "✅ WebSocket connected"
       );
-    };
-
-    socket.onclose = (event) => {
-
-      if (!event.wasClean) {
-
-        console.warn(
-          "WebSocket disconnected"
-        );
-      }
     };
 
     socket.onmessage = (
@@ -296,7 +324,12 @@ export default function FleetMap({
       );
     };
 
-    // 📦 REFRESH ORDERS
+    socket.onclose = () => {
+
+      console.warn(
+        "⚠️ WebSocket disconnected"
+      );
+    };
 
     const orderInterval =
       setInterval(() => {
@@ -314,11 +347,14 @@ export default function FleetMap({
 
   }, []);
 
-  // 🔥 SAFE LIVE SIDEBAR UPDATE
+  /* ===================================================== */
+  /* 🚀 LIVE SIDEBAR */
+  /* ===================================================== */
 
   useEffect(() => {
 
-    if (!selectedVehicle) return;
+    if (!selectedVehicle)
+      return;
 
     const latestVehicle =
       vehicles.find(
@@ -340,6 +376,11 @@ export default function FleetMap({
 
   }, [vehicles]);
 
+  const mapTheme =
+    darkMode
+      ? mapTokens.dark
+      : mapTokens.light;
+
   return (
 
     <div className="h-full w-full">
@@ -348,6 +389,11 @@ export default function FleetMap({
         center={[12.9716, 77.5946]}
         zoom={11}
         scrollWheelZoom={true}
+        className={
+          darkMode
+            ? "leaflet-map--dark"
+            : "leaflet-map--light"
+        }
         style={{
           height: "100%",
           width: "100%",
@@ -355,11 +401,18 @@ export default function FleetMap({
       >
 
         <TileLayer
+          key={
+            darkMode
+              ? "dark"
+              : "light"
+          }
           attribution="&copy; OpenStreetMap contributors"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url={mapTheme.tileUrl}
         />
 
+        {/* ================================================= */}
         {/* 🚀 AUTO FOLLOW */}
+        {/* ================================================= */}
 
         {focusedVehicle && (
 
@@ -378,7 +431,9 @@ export default function FleetMap({
 
         )}
 
+        {/* ================================================= */}
         {/* 🚚 VEHICLES */}
+        {/* ================================================= */}
 
         {vehicles.map((vehicle) => {
 
@@ -389,25 +444,68 @@ export default function FleetMap({
 
             <div key={vehicle.id}>
 
-              {/* 🛣️ ROUTE */}
+              {/* ================================================= */}
+              {/* 🚀 ACTIVE ROUTE */}
+              {/* ================================================= */}
 
               {vehicle.route_data &&
                 vehicle.route_data.length > 0 &&
                 vehicle.is_moving && (
 
-                  <Polyline
-                    positions={
-                      vehicle.route_data
-                    }
-                    pathOptions={{
-                      color: "#2563eb",
-                      weight: 5,
-                      opacity: 0.8,
-                    }}
-                  />
+                  <>
+                    <Polyline
+                      positions={
+                        vehicle.route_data
+                      }
+                      pathOptions={{
+                        color: mapTheme.routeHalo,
+                        weight: mapTheme.routeHaloWeight,
+                        opacity: mapTheme.routeHaloOpacity,
+                        lineCap: "round",
+                        lineJoin: "round",
+                      }}
+                    />
+
+                    <Polyline
+                      positions={
+                        vehicle.route_data
+                      }
+                      pathOptions={{
+                        color: mapTheme.route,
+                        weight: mapTheme.routeWeight,
+                        opacity: mapTheme.routeOpacity,
+                        lineCap: "round",
+                        lineJoin: "round",
+                      }}
+                    />
+                  </>
                 )}
 
-              {/* 🚚 MOVING VEHICLE */}
+              {/* ================================================= */}
+              {/* 🚀 VEHICLE PULSE */}
+              {/* ================================================= */}
+
+              {vehicle.is_moving && (
+
+                <CircleMarker
+                  center={
+                    currentPosition
+                  }
+                  radius={20}
+                  pathOptions={{
+                    color: mapTheme.pulseStroke,
+                    fillColor: mapTheme.pulseFill,
+                    fillOpacity: 1,
+                    opacity: 0.5,
+                    weight: 1,
+                  }}
+                />
+
+              )}
+
+              {/* ================================================= */}
+              {/* 🚀 MOVING VEHICLE */}
+              {/* ================================================= */}
 
               <LeafletTrackingMarker
                 position={
@@ -445,63 +543,107 @@ export default function FleetMap({
 
                 <Popup>
 
-                  <div className="text-sm min-w-[220px]">
+                  <div className="min-w-[220px] text-sm text-neutral-800">
 
-                    <p className="font-bold text-lg mb-2">
+                    <div className="mb-3">
 
-                      🚚 {vehicle.name}
+                      <h3 className="font-semibold text-base text-neutral-900 tracking-tight">
 
-                    </p>
+                        {vehicle.name}
 
-                    <div className="space-y-1">
+                      </h3>
 
-                      <p>
-                        <strong>Driver:</strong>{" "}
-                        {
-                          vehicle.driver_name
-                        }
-                      </p>
+                      <p className="text-neutral-500 text-xs mt-1 capitalize">
 
-                      <p>
-                        <strong>Type:</strong>{" "}
                         {
                           vehicle.vehicle_type
                         }
+
+                      </p>
+
+                    </div>
+
+                    <div className="space-y-1.5 text-[13px] text-neutral-700">
+
+                      <p>
+
+                        <span className="text-neutral-500">
+                          Driver
+                        </span>
+                        {": "}
+                        {
+                          vehicle.driver_name
+                        }
+
                       </p>
 
                       <p>
-                        <strong>Speed:</strong>{" "}
+
+                        <span className="text-neutral-500">
+                          Speed
+                        </span>
+                        {": "}
                         {vehicle.speed.toFixed(
                           0
-                        )} km/h
+                        )}{" "}
+                        km/h
+
                       </p>
 
                       <p>
-                        <strong>Fuel:</strong>{" "}
+
+                        <span className="text-neutral-500">
+                          Fuel
+                        </span>
+                        {": "}
                         {vehicle.fuel_level.toFixed(
                           1
-                        )}%
+                        )}
+                        %
+
                       </p>
 
                       <p>
-                        <strong>ETA:</strong>{" "}
+
+                        <span className="text-neutral-500">
+                          ETA
+                        </span>
+                        {": "}
                         {
                           vehicle.eta_minutes
-                        } mins
+                        }{" "}
+                        mins
+
                       </p>
 
                       <p>
-                        <strong>Distance:</strong>{" "}
+
+                        <span className="text-neutral-500">
+                          Distance
+                        </span>
+                        {": "}
                         {
                           vehicle.remaining_distance
-                        } km
+                        }{" "}
+                        km
+
                       </p>
 
                       <p>
-                        <strong>Status:</strong>{" "}
-                        {vehicle.is_moving
-                          ? "Moving"
-                          : "Idle"}
+
+                        <span className="text-neutral-500">
+                          Status
+                        </span>
+                        {": "}
+
+                        <span className="font-medium text-neutral-900">
+
+                          {vehicle.is_moving
+                            ? "Moving"
+                            : "Idle"}
+
+                        </span>
+
                       </p>
 
                     </div>
@@ -516,7 +658,9 @@ export default function FleetMap({
           );
         })}
 
+        {/* ================================================= */}
         {/* 📦 ACTIVE ORDERS */}
+        {/* ================================================= */}
 
         {orders
           .filter(
@@ -533,7 +677,7 @@ export default function FleetMap({
 
               <div key={uniqueKey}>
 
-                {/* 📦 PICKUP */}
+                {/* PICKUP */}
 
                 <Marker
                   position={[
@@ -547,21 +691,25 @@ export default function FleetMap({
 
                     <div>
 
-                      <p className="font-bold">
+                      <p className="font-semibold text-neutral-900">
 
-                        📦 Pickup
+                        Pickup
 
                       </p>
 
                       <p>
+
                         {
                           order.customer_name
                         }
+
                       </p>
 
                       <p>
+
                         Status:{" "}
                         {order.status}
+
                       </p>
 
                     </div>
@@ -570,7 +718,7 @@ export default function FleetMap({
 
                 </Marker>
 
-                {/* 📍 DROP */}
+                {/* DROP */}
 
                 <Marker
                   position={[
@@ -584,16 +732,18 @@ export default function FleetMap({
 
                     <div>
 
-                      <p className="font-bold">
+                      <p className="font-semibold text-neutral-900">
 
-                        📍 Drop
+                        Drop
 
                       </p>
 
                       <p>
+
                         {
                           order.customer_name
                         }
+
                       </p>
 
                     </div>

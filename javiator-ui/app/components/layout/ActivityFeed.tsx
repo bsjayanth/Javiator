@@ -17,6 +17,13 @@ import {
 
 } from "react";
 
+import { apiFetch }
+from "@/services/api";
+
+// =====================================================
+// 🚀 TYPES
+// =====================================================
+
 type Notification = {
 
   id: number;
@@ -37,6 +44,10 @@ type Props = {
   darkMode: boolean;
 };
 
+// =====================================================
+// 🚀 ICON CLASS
+// =====================================================
+
 const iconClass = (
   dark: boolean
 ) =>
@@ -50,45 +61,76 @@ export default function ActivityFeed({
 
 }: Props) {
 
+  // =====================================================
+  // 🚀 STATES
+  // =====================================================
+
   const [notifications, setNotifications] =
     useState<Notification[]>([]);
 
-  const fetchNotifications = async () => {
+  const [loading, setLoading] =
+    useState(true);
 
-    try {
+  // =====================================================
+  // 🚀 FETCH NOTIFICATIONS
+  // =====================================================
 
-      const res = await fetch(
-        "http://127.0.0.1:8000/api/notifications/"
-      );
+  const fetchNotifications =
+    async () => {
 
-      const data = await res.json();
+      try {
 
-      setNotifications(
-        data.slice(0, 8)
-      );
+        const data =
+          await apiFetch(
+            "/api/notifications/"
+          );
 
-    } catch (err) {
+        const safeData =
+          Array.isArray(data)
+            ? data.slice(0, 8)
+            : [];
 
-      console.error(
-        "Activity feed error:",
-        err
-      );
-    }
-  };
+        setNotifications(
+          safeData
+        );
+
+      } catch (err) {
+
+        console.error(
+          "Activity feed error:",
+          err
+        );
+
+        setNotifications([]);
+
+      } finally {
+
+        setLoading(false);
+      }
+    };
+
+  // =====================================================
+  // 🚀 INITIAL LOAD
+  // =====================================================
 
   useEffect(() => {
 
     fetchNotifications();
 
-    const interval = setInterval(
-      fetchNotifications,
-      3000
-    );
+    const interval =
+      setInterval(
+        fetchNotifications,
+        5000
+      );
 
     return () =>
       clearInterval(interval);
 
   }, []);
+
+  // =====================================================
+  // 🚀 ICONS
+  // =====================================================
 
   const getIcon = (
     type: string
@@ -141,6 +183,10 @@ export default function ActivityFeed({
     }
   };
 
+  // =====================================================
+  // 🚀 UI
+  // =====================================================
+
   return (
 
     <div
@@ -150,6 +196,10 @@ export default function ActivityFeed({
           : "bg-[#F8FAFC] border-[#E5E7EB]"
       }`}
     >
+
+      {/* ================================================= */}
+      {/* 🚀 HEADER */}
+      {/* ================================================= */}
 
       <div className="mb-5 flex items-start justify-between gap-3">
 
@@ -196,87 +246,122 @@ export default function ActivityFeed({
 
       </div>
 
+      {/* ================================================= */}
+      {/* 🚀 CONTENT */}
+      {/* ================================================= */}
+
       <div className="space-y-2.5">
 
-        {notifications.map(
-          (notification) => (
+        {loading ? (
 
-            <div
-              key={notification.id}
-              className={`rounded-2xl border p-4 transition-all duration-200 hover:translate-x-0.5 ${
-                darkMode
-                  ? "bg-[#111111] border-white/[0.06] hover:border-white/[0.09]"
-                  : "bg-white border-[#E5E7EB] hover:border-[#D1D5DB]"
-              }`}
-            >
+          <div
+            className={`rounded-2xl border p-6 text-center text-sm ${
+              darkMode
+                ? "bg-[#111111] border-white/[0.06] text-[#71717A]"
+                : "bg-white border-[#E5E7EB] text-[#9CA3AF]"
+            }`}
+          >
 
-              <div className="flex gap-3">
+            Loading activity feed...
 
-                <div className="mt-0.5 shrink-0">
+          </div>
 
-                  {getIcon(
-                    notification.alert_type
-                  )}
+        ) : notifications.length === 0 ? (
 
-                </div>
+          <div
+            className={`rounded-2xl border p-6 text-center text-sm ${
+              darkMode
+                ? "bg-[#111111] border-white/[0.06] text-[#71717A]"
+                : "bg-white border-[#E5E7EB] text-[#9CA3AF]"
+            }`}
+          >
 
-                <div className="flex-1 min-w-0">
+            All systems operational — activity stream clear
 
-                  <div className="flex items-center justify-between gap-2">
+          </div>
 
-                    <h4
-                      className={`text-sm font-semibold truncate ${
-                        darkMode
-                          ? "text-[#F5F5F5]"
-                          : "text-[#111827]"
-                      }`}
-                    >
+        ) : (
 
-                      {notification.title}
+          notifications.map(
+            (notification) => (
 
-                    </h4>
+              <div
+                key={notification.id}
+                className={`rounded-2xl border p-4 transition-all duration-200 hover:translate-x-0.5 ${
+                  darkMode
+                    ? "bg-[#111111] border-white/[0.06] hover:border-white/[0.09]"
+                    : "bg-white border-[#E5E7EB] hover:border-[#D1D5DB]"
+                }`}
+              >
 
-                    <div
-                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                        darkMode
-                          ? "bg-[#52525B]"
-                          : "bg-[#D1D5DB]"
-                      }`}
-                    />
+                <div className="flex gap-3">
+
+                  <div className="mt-0.5 shrink-0">
+
+                    {getIcon(
+                      notification.alert_type
+                    )}
 
                   </div>
 
-                  <p
-                    className={`text-[12px] mt-1 leading-relaxed ${
-                      darkMode
-                        ? "text-[#A1A1AA]"
-                        : "text-[#6B7280]"
+                  <div className="flex-1 min-w-0">
+
+                    <div className="flex items-center justify-between gap-2">
+
+                      <h4
+                        className={`text-sm font-semibold truncate ${
+                          darkMode
+                            ? "text-[#F5F5F5]"
+                            : "text-[#111827]"
+                        }`}
+                      >
+
+                        {notification.title}
+
+                      </h4>
+
+                      <div
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          darkMode
+                            ? "bg-[#52525B]"
+                            : "bg-[#D1D5DB]"
+                        }`}
+                      />
+
+                    </div>
+
+                    <p
+                      className={`text-[12px] mt-1 leading-relaxed ${
+                        darkMode
+                          ? "text-[#A1A1AA]"
+                          : "text-[#6B7280]"
+                      }`}
+                    >
+
+                      {notification.message}
+
+                    </p>
+
+                    <p
+                      className={`text-[10px] mt-2 tracking-wide ${
+                        darkMode
+                          ? "text-[#71717A]"
+                          : "text-[#9CA3AF]"
                     }`}
-                  >
+                    >
 
-                    {notification.message}
+                      {new Date(
+                        notification.created_at
+                      ).toLocaleTimeString()}
 
-                  </p>
+                    </p>
 
-                  <p
-                    className={`text-[10px] mt-2 tracking-wide ${
-                      darkMode
-                        ? "text-[#71717A]"
-                        : "text-[#9CA3AF]"
-                    }`}
-                  >
-
-                    {new Date(
-                      notification.created_at
-                    ).toLocaleTimeString()}
-
-                  </p>
+                  </div>
 
                 </div>
 
               </div>
-
-            </div>
+            )
           )
         )}
 

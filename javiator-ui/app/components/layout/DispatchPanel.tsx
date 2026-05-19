@@ -36,18 +36,19 @@ type Vehicle = {
 };
 
 type Props = {
-
   darkMode: boolean;
-
   selectedVehicle: Vehicle | null;
+  showAiInsights?: boolean;
+  showActivityFeed?: boolean;
+  variant?: "operations" | "driver";
 };
 
 export default function DispatchPanel({
-
   darkMode,
-
   selectedVehicle,
-
+  showAiInsights = true,
+  showActivityFeed = true,
+  variant = "operations",
 }: Props) {
 
   return (
@@ -76,7 +77,7 @@ export default function DispatchPanel({
                 }`}
               >
 
-                Dispatch Hub
+                {variant === "driver" ? "My route" : "Dispatch hub"}
 
               </h2>
 
@@ -87,9 +88,9 @@ export default function DispatchPanel({
                     : "text-[#6B7280]"
                 }`}
               >
-
-                Realtime fleet intelligence center
-
+                {variant === "driver"
+                  ? "Assigned deliveries, fuel, and vehicle telemetry"
+                  : "Realtime fleet intelligence center"}
               </p>
 
             </div>
@@ -382,7 +383,7 @@ export default function DispatchPanel({
               }`}
             >
 
-              No vehicle selected
+              Fleet network awaiting selection
 
             </h3>
 
@@ -393,23 +394,21 @@ export default function DispatchPanel({
                   : "text-[#6B7280]"
               }`}
             >
-
-              Select a live vehicle from the fleet map to view realtime
-              telemetry and dispatch intelligence.
-
+              Select a live asset on the map to surface route intelligence,
+              ETA projections, and operational telemetry.
             </p>
 
           </div>
 
         )}
 
-        <ActivityFeed
-          darkMode={darkMode}
-        />
+        {showActivityFeed && (
+          <ActivityFeed darkMode={darkMode} />
+        )}
 
-        <AIinsights
-          darkMode={darkMode}
-        />
+        {showAiInsights && (
+          <AIinsights darkMode={darkMode} />
+        )}
 
       </div>
 

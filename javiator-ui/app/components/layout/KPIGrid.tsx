@@ -17,6 +17,13 @@ import {
 
 } from "react";
 
+import { apiFetch }
+from "@/services/api";
+
+// =====================================================
+// 🚀 TYPES
+// =====================================================
+
 type FleetKpis = {
 
   total_vehicles: number;
@@ -29,22 +36,34 @@ type FleetKpis = {
 };
 
 type Props = {
-
   darkMode: boolean;
-
   kpis: FleetKpis;
+  compact?: boolean;
 };
 
+// =====================================================
+// 🚀 COMPONENT
+// =====================================================
+
 export default function KpiGrid({
-
   darkMode,
-
   kpis,
-
+  compact = false,
 }: Props) {
+
+  // =====================================================
+  // 🚀 STATES
+  // =====================================================
 
   const [fulfillmentPct, setFulfillmentPct] =
     useState<number | null>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  // =====================================================
+  // 🚀 LOAD ANALYTICS
+  // =====================================================
 
   useEffect(() => {
 
@@ -52,95 +71,129 @@ export default function KpiGrid({
 
       try {
 
-        const res = await fetch(
-
-          "http://127.0.0.1:8000/api/analytics/dashboard/"
-        );
-
-        const data = await res.json();
+        const data =
+          await apiFetch(
+            "/api/analytics/dashboard/"
+          );
 
         const total =
-          Number(data.total_orders) || 0;
+          Number(
+            data?.total_orders
+          ) || 0;
 
         const done =
-          Number(data.completed_orders) || 0;
+          Number(
+            data?.completed_orders
+          ) || 0;
 
         if (total <= 0) {
 
           setFulfillmentPct(null);
 
-          return;
+        } else {
+
+          setFulfillmentPct(
+
+            Math.round(
+              (done / total) * 100
+            )
+          );
         }
 
-        setFulfillmentPct(
+      } catch (error) {
 
-          Math.round(
-            (done / total) * 100
-          )
+        console.error(
+          "KPI analytics error:",
+          error
         );
-
-      } catch {
 
         setFulfillmentPct(null);
 
+      } finally {
+
+        setLoading(false);
       }
     };
 
     load();
 
-    const t = setInterval(
-      load,
-      5000
-    );
+    const interval =
+      setInterval(
+        load,
+        5000
+      );
 
     return () =>
-      clearInterval(t);
+      clearInterval(interval);
 
   }, []);
+
+  // =====================================================
+  // 🚀 KPI CARDS
+  // =====================================================
 
   const cards = [
 
     {
       title: "Total vehicles",
-      value: kpis.total_vehicles,
+      value:
+        kpis.total_vehicles,
       icon: Package,
       format: "int" as const,
     },
 
     {
       title: "Active vehicles",
-      value: kpis.active_vehicles,
+      value:
+        kpis.active_vehicles,
       icon: Truck,
       format: "int" as const,
     },
 
     {
       title: "Moving now",
-      value: kpis.moving_vehicles,
+      value:
+        kpis.moving_vehicles,
       icon: Activity,
       format: "int" as const,
     },
 
     {
       title: "Low fuel",
-      value: kpis.low_fuel_vehicles,
+      value:
+        kpis.low_fuel_vehicles,
       icon: Fuel,
       format: "int" as const,
     },
 
     {
       title: "Order fulfillment",
-      value: fulfillmentPct,
+      value:
+        fulfillmentPct,
       icon: Target,
       format: "pct" as const,
     },
   ];
 
+  // =====================================================
+  // 🚀 UI
+  // =====================================================
+
+  const visibleCards = compact
+    ? cards.filter((c) =>
+        ["Moving now", "Low fuel", "Order fulfillment"].includes(c.title)
+      )
+    : cards;
+
   return (
-
-    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
-
-      {cards.map((item, index) => {
+    <div
+      className={`grid gap-3 sm:gap-4 ${
+        compact
+          ? "grid-cols-1 sm:grid-cols-3"
+          : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-5"
+      }`}
+    >
+      {visibleCards.map((item, index) => {
 
         const Icon =
           item.icon;
@@ -148,9 +201,11 @@ export default function KpiGrid({
         const display =
           item.format === "pct"
 
-            ? item.value === null
-              ? "—"
-              : `${item.value}%`
+            ? loading
+              ? "..."
+              : item.value === null
+                ? "—"
+                : `${item.value}%`
 
             : item.value;
 
@@ -158,12 +213,16 @@ export default function KpiGrid({
 
           <div
             key={index}
-            className={`rounded-2xl border p-4 sm:p-5 transition-colors duration-200 ${
+            className={`rounded-2xl border p-4 sm:p-5 transition-all duration-200 hover:-translate-y-0.5 ${
               darkMode
-                ? "bg-[#111111] border-white/[0.05] hover:border-white/[0.08]"
-                : "bg-white border-[#E5E7EB] shadow-[0_1px_0_rgba(0,0,0,0.04)] hover:border-[#D1D5DB]"
+                ? "bg-[#111111] border-white/[0.05] hover:border-white/[0.08] shadow-[0_12px_32px_rgba(0,0,0,0.35)]"
+                : "bg-white border-[#E5E7EB] shadow-[0_1px_0_rgba(0,0,0,0.04)] hover:border-[#D1D5DB] hover:shadow-md"
             }`}
           >
+
+            {/* ================================================= */}
+            {/* 🚀 ICON */}
+            {/* ================================================= */}
 
             <div
               className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border ${
@@ -177,6 +236,10 @@ export default function KpiGrid({
 
             </div>
 
+            {/* ================================================= */}
+            {/* 🚀 VALUE */}
+            {/* ================================================= */}
+
             <p
               className={`mt-4 text-[28px] sm:text-[32px] leading-none font-bold tracking-[-0.03em] tabular-nums ${
                 darkMode
@@ -188,6 +251,10 @@ export default function KpiGrid({
               {display}
 
             </p>
+
+            {/* ================================================= */}
+            {/* 🚀 TITLE */}
+            {/* ================================================= */}
 
             <p
               className={`mt-2 text-[12px] font-medium leading-snug ${

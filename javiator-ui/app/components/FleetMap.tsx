@@ -30,7 +30,15 @@ import L from "leaflet";
 
 import "leaflet/dist/leaflet.css";
 
-import { mapTokens } from "../styles/theme";
+import { mapTokens }
+from "../styles/theme";
+
+import { apiFetch }
+from "@/services/api";
+
+// =====================================================
+// 🚀 TYPES
+// =====================================================
 
 type Vehicle = {
 
@@ -89,6 +97,10 @@ type FleetMapProps = {
     React.SetStateAction<Vehicle | null>
   >;
 };
+
+// =====================================================
+// 🚀 RECENTER MAP
+// =====================================================
 
 function RecenterMap({
 
@@ -163,6 +175,10 @@ export default function FleetMap({
 
 }: FleetMapProps) {
 
+  // =====================================================
+  // 🚀 STATES
+  // =====================================================
+
   const [vehicles, setVehicles] =
     useState<Vehicle[]>([]);
 
@@ -216,13 +232,16 @@ export default function FleetMap({
 
     try {
 
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/fleet/vehicles/"
+      const data =
+        await apiFetch(
+          "/api/fleet/vehicles/"
+        );
+
+      setVehicles(
+        Array.isArray(data)
+          ? data
+          : []
       );
-
-      const data = await response.json();
-
-      setVehicles(data);
 
     } catch (error) {
 
@@ -241,13 +260,16 @@ export default function FleetMap({
 
     try {
 
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/orders/"
+      const data =
+        await apiFetch(
+          "/api/orders/"
+        );
+
+      setOrders(
+        Array.isArray(data)
+          ? data
+          : []
       );
-
-      const data = await response.json();
-
-      setOrders(data);
 
     } catch (error) {
 
@@ -268,9 +290,16 @@ export default function FleetMap({
 
     fetchOrders();
 
-    const socket = new WebSocket(
-      "ws://127.0.0.1:8000/ws/fleet/"
-    );
+    const socketProtocol =
+      window.location.protocol ===
+      "https:"
+        ? "wss"
+        : "ws";
+
+    const socket =
+      new WebSocket(
+        `${socketProtocol}://127.0.0.1:8000/ws/fleet/`
+      );
 
     socket.onopen = () => {
 
@@ -283,8 +312,22 @@ export default function FleetMap({
       event
     ) => {
 
-      const updatedVehicle =
-        JSON.parse(event.data);
+      let updatedVehicle;
+
+      try {
+
+        updatedVehicle =
+          JSON.parse(event.data);
+
+      } catch (error) {
+
+        console.error(
+          "WebSocket parse error:",
+          error
+        );
+
+        return;
+      }
 
       setVehicles(
         (prevVehicles) => {
@@ -376,10 +419,18 @@ export default function FleetMap({
 
   }, [vehicles]);
 
+  // =====================================================
+  // 🚀 MAP THEME
+  // =====================================================
+
   const mapTheme =
     darkMode
       ? mapTokens.dark
       : mapTokens.light;
+
+  // =====================================================
+  // 🚀 UI
+  // =====================================================
 
   return (
 
@@ -435,326 +486,242 @@ export default function FleetMap({
         {/* 🚚 VEHICLES */}
         {/* ================================================= */}
 
-        {vehicles.map((vehicle) => {
+        {Array.isArray(vehicles) &&
+          vehicles.map((vehicle) => {
 
-          const currentPosition =
-            getVehiclePosition(vehicle);
+            const currentPosition =
+              getVehiclePosition(vehicle);
 
-          return (
+            return (
 
-            <div key={vehicle.id}>
+              <div key={vehicle.id}>
 
-              {/* ================================================= */}
-              {/* 🚀 ACTIVE ROUTE */}
-              {/* ================================================= */}
+                {/* ACTIVE ROUTE */}
 
-              {vehicle.route_data &&
-                vehicle.route_data.length > 0 &&
-                vehicle.is_moving && (
+                {vehicle.route_data &&
+                  vehicle.route_data.length > 0 &&
+                  vehicle.is_moving && (
 
-                  <>
-                    <Polyline
-                      positions={
-                        vehicle.route_data
-                      }
-                      pathOptions={{
-                        color: mapTheme.routeHalo,
-                        weight: mapTheme.routeHaloWeight,
-                        opacity: mapTheme.routeHaloOpacity,
-                        lineCap: "round",
-                        lineJoin: "round",
-                      }}
-                    />
+                    <>
+                      <Polyline
+                        positions={
+                          vehicle.route_data
+                        }
+                        pathOptions={{
+                          color:
+                            mapTheme.routeHalo,
+                          weight:
+                            mapTheme.routeHaloWeight,
+                          opacity:
+                            mapTheme.routeHaloOpacity,
+                          lineCap:
+                            "round",
+                          lineJoin:
+                            "round",
+                        }}
+                      />
 
-                    <Polyline
-                      positions={
-                        vehicle.route_data
-                      }
-                      pathOptions={{
-                        color: mapTheme.route,
-                        weight: mapTheme.routeWeight,
-                        opacity: mapTheme.routeOpacity,
-                        lineCap: "round",
-                        lineJoin: "round",
-                      }}
-                    />
-                  </>
+                      <Polyline
+                        positions={
+                          vehicle.route_data
+                        }
+                        pathOptions={{
+                          color:
+                            mapTheme.route,
+                          weight:
+                            mapTheme.routeWeight,
+                          opacity:
+                            mapTheme.routeOpacity,
+                          lineCap:
+                            "round",
+                          lineJoin:
+                            "round",
+                        }}
+                      />
+                    </>
+                  )}
+
+                {/* VEHICLE PULSE */}
+
+                {vehicle.is_moving && (
+
+                  <CircleMarker
+                    center={
+                      currentPosition
+                    }
+                    radius={20}
+                    pathOptions={{
+                      color:
+                        mapTheme.pulseStroke,
+                      fillColor:
+                        mapTheme.pulseFill,
+                      fillOpacity: 1,
+                      opacity: 0.5,
+                      weight: 1,
+                    }}
+                  />
+
                 )}
 
-              {/* ================================================= */}
-              {/* 🚀 VEHICLE PULSE */}
-              {/* ================================================= */}
+                {/* MOVING VEHICLE */}
 
-              {vehicle.is_moving && (
-
-                <CircleMarker
-                  center={
+                <LeafletTrackingMarker
+                  position={
                     currentPosition
                   }
-                  radius={20}
-                  pathOptions={{
-                    color: mapTheme.pulseStroke,
-                    fillColor: mapTheme.pulseFill,
-                    fillOpacity: 1,
-                    opacity: 0.5,
-                    weight: 1,
+
+                  previousPosition={
+                    previousPositions
+                      .current[
+                      vehicle.id
+                    ] ||
+                    currentPosition
+                  }
+
+                  duration={900}
+
+                  keepAtCenter={false}
+
+                  icon={truckIcon}
+
+                  eventHandlers={{
+
+                    click: () => {
+
+                      setSelectedVehicle(
+                        vehicle
+                      );
+
+                      setFocusedVehicle(
+                        vehicle
+                      );
+                    },
                   }}
-                />
+                >
 
-              )}
+                  <Popup>
 
-              {/* ================================================= */}
-              {/* 🚀 MOVING VEHICLE */}
-              {/* ================================================= */}
+                    <div className="min-w-[220px] text-sm text-neutral-800">
 
-              <LeafletTrackingMarker
-                position={
-                  currentPosition
-                }
+                      <div className="mb-3">
 
-                previousPosition={
-                  previousPositions
-                    .current[
-                    vehicle.id
-                  ] ||
-                  currentPosition
-                }
+                        <h3 className="font-semibold text-base text-neutral-900 tracking-tight">
 
-                duration={900}
+                          {vehicle.name}
 
-                keepAtCenter={false}
+                        </h3>
 
-                icon={truckIcon}
+                        <p className="text-neutral-500 text-xs mt-1 capitalize">
 
-                eventHandlers={{
+                          {
+                            vehicle.vehicle_type
+                          }
 
-                  click: () => {
+                        </p>
 
-                    setSelectedVehicle(
-                      vehicle
-                    );
-
-                    setFocusedVehicle(
-                      vehicle
-                    );
-                  },
-                }}
-              >
-
-                <Popup>
-
-                  <div className="min-w-[220px] text-sm text-neutral-800">
-
-                    <div className="mb-3">
-
-                      <h3 className="font-semibold text-base text-neutral-900 tracking-tight">
-
-                        {vehicle.name}
-
-                      </h3>
-
-                      <p className="text-neutral-500 text-xs mt-1 capitalize">
-
-                        {
-                          vehicle.vehicle_type
-                        }
-
-                      </p>
+                      </div>
 
                     </div>
 
-                    <div className="space-y-1.5 text-[13px] text-neutral-700">
+                  </Popup>
 
-                      <p>
+                </LeafletTrackingMarker>
 
-                        <span className="text-neutral-500">
-                          Driver
-                        </span>
-                        {": "}
-                        {
-                          vehicle.driver_name
-                        }
-
-                      </p>
-
-                      <p>
-
-                        <span className="text-neutral-500">
-                          Speed
-                        </span>
-                        {": "}
-                        {vehicle.speed.toFixed(
-                          0
-                        )}{" "}
-                        km/h
-
-                      </p>
-
-                      <p>
-
-                        <span className="text-neutral-500">
-                          Fuel
-                        </span>
-                        {": "}
-                        {vehicle.fuel_level.toFixed(
-                          1
-                        )}
-                        %
-
-                      </p>
-
-                      <p>
-
-                        <span className="text-neutral-500">
-                          ETA
-                        </span>
-                        {": "}
-                        {
-                          vehicle.eta_minutes
-                        }{" "}
-                        mins
-
-                      </p>
-
-                      <p>
-
-                        <span className="text-neutral-500">
-                          Distance
-                        </span>
-                        {": "}
-                        {
-                          vehicle.remaining_distance
-                        }{" "}
-                        km
-
-                      </p>
-
-                      <p>
-
-                        <span className="text-neutral-500">
-                          Status
-                        </span>
-                        {": "}
-
-                        <span className="font-medium text-neutral-900">
-
-                          {vehicle.is_moving
-                            ? "Moving"
-                            : "Idle"}
-
-                        </span>
-
-                      </p>
-
-                    </div>
-
-                  </div>
-
-                </Popup>
-
-              </LeafletTrackingMarker>
-
-            </div>
-          );
-        })}
+              </div>
+            );
+          })}
 
         {/* ================================================= */}
         {/* 📦 ACTIVE ORDERS */}
         {/* ================================================= */}
 
-        {orders
-          .filter(
-            (order) =>
-              order.status !==
-              "delivered"
-          )
-          .map((order) => {
+        {Array.isArray(orders) &&
+          orders
+            .filter(
+              (order) =>
+                order.status !==
+                "delivered"
+            )
+            .map((order) => {
 
-            const uniqueKey =
-              `${order.id}-${order.status}`;
+              const uniqueKey =
+                `${order.id}-${order.status}`;
 
-            return (
+              return (
 
-              <div key={uniqueKey}>
+                <div key={uniqueKey}>
 
-                {/* PICKUP */}
+                  {/* PICKUP */}
 
-                <Marker
-                  position={[
-                    order.pickup_lat,
-                    order.pickup_lng,
-                  ]}
-                  icon={pickupIcon}
-                >
+                  <Marker
+                    position={[
+                      order.pickup_lat,
+                      order.pickup_lng,
+                    ]}
+                    icon={pickupIcon}
+                  >
 
-                  <Popup>
+                    <Popup>
 
-                    <div>
+                      <div>
 
-                      <p className="font-semibold text-neutral-900">
+                        <p className="font-semibold text-neutral-900">
 
-                        Pickup
+                          Pickup
 
-                      </p>
+                        </p>
 
-                      <p>
+                        <p>
 
-                        {
-                          order.customer_name
-                        }
+                          {
+                            order.customer_name
+                          }
 
-                      </p>
+                        </p>
 
-                      <p>
+                      </div>
 
-                        Status:{" "}
-                        {order.status}
+                    </Popup>
 
-                      </p>
+                  </Marker>
 
-                    </div>
+                  {/* DROP */}
 
-                  </Popup>
+                  <Marker
+                    position={[
+                      order.drop_lat,
+                      order.drop_lng,
+                    ]}
+                    icon={dropIcon}
+                  >
 
-                </Marker>
+                    <Popup>
 
-                {/* DROP */}
+                      <div>
 
-                <Marker
-                  position={[
-                    order.drop_lat,
-                    order.drop_lng,
-                  ]}
-                  icon={dropIcon}
-                >
+                        <p className="font-semibold text-neutral-900">
 
-                  <Popup>
+                          Drop
 
-                    <div>
+                        </p>
 
-                      <p className="font-semibold text-neutral-900">
+                        <p>
 
-                        Drop
+                          {
+                            order.customer_name
+                          }
 
-                      </p>
+                        </p>
 
-                      <p>
+                      </div>
 
-                        {
-                          order.customer_name
-                        }
+                    </Popup>
 
-                      </p>
+                  </Marker>
 
-                    </div>
-
-                  </Popup>
-
-                </Marker>
-
-              </div>
-            );
-          })}
+                </div>
+              );
+            })}
 
       </MapContainer>
 

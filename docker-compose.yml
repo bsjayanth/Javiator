@@ -1,14 +1,11 @@
-services:
+﻿services:
   web:
     build:
       context: .
       dockerfile: backend/Dockerfile
     command: >
-      sh -c "
-      python manage.py makemigrations &&
-      python manage.py migrate &&
-      daphne -b 0.0.0.0 -p 8000 config.asgi:application
-      "
+      sh -c "python manage.py migrate &&
+             daphne -b 0.0.0.0 -p 8000 config.asgi:application"
     volumes:
       - ./backend:/app
     ports:
@@ -20,9 +17,16 @@ services:
       DEBUG: ${DEBUG:-True}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,web}
       ORS_API_KEY: ${ORS_API_KEY}
+      POSTGRES_DB: javiator
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
     depends_on:
-      - redis
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   worker:
     build:
@@ -38,9 +42,16 @@ services:
       DEBUG: ${DEBUG:-True}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,web}
       ORS_API_KEY: ${ORS_API_KEY}
+      POSTGRES_DB: javiator
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
     depends_on:
-      - redis
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   beat:
     build:
@@ -56,9 +67,16 @@ services:
       DEBUG: ${DEBUG:-True}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,web}
       ORS_API_KEY: ${ORS_API_KEY}
+      POSTGRES_DB: javiator
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
     depends_on:
-      - redis
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   redis:
     image: redis:7
@@ -66,7 +84,7 @@ services:
       - "6379:6379"
 
   db:
-    image: postgres:15
+    image: postgis/postgis:15-3.4
     container_name: javiator-db
     environment:
       POSTGRES_DB: javiator
@@ -76,6 +94,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d javiator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   postgres_data:

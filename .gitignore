@@ -18,6 +18,7 @@ build/
 # ==============================
 db.sqlite3
 db.sqlite3-journal
+*.sqlite3
 staticfiles/
 backend/staticfiles/
 backend/media/
@@ -79,9 +80,15 @@ Desktop.ini
 *.bak
 
 # ==============================
-# Local databases and application state
+# Celery runtime state
 # ==============================
-*.sqlite3
 celerybeat-schedule
 celerybeat-schedule.*
+backend/celerybeat-schedule
+backend/celerybeat-schedule.*
+
+# ==============================
+# Local environment and tooling
+# ==============================
+.python-version
 ```

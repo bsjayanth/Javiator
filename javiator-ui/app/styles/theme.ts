@@ -1,9 +1,15 @@
 /** Map + route tokens — control-tower look (reference-tuned). */
 
+const cartoKey = process.env.NEXT_PUBLIC_CARTO_API_KEY ?? "";
+
+const cartoTile = (path: string) =>
+  cartoKey
+    ? `https://{s}.basemaps.cartocdn.com/${path}/{z}/{x}/{y}{r}.png?key=${cartoKey}`
+    : `https://{s}.basemaps.cartocdn.com/${path}/{z}/{x}/{y}{r}.png`;
+
 export const mapTokens = {
   dark: {
-    tileUrl:
-      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    tileUrl: cartoTile("dark_all"),
     route: "#FAFAFA",
     routeWeight: 5,
     routeOpacity: 0.92,
@@ -14,8 +20,7 @@ export const mapTokens = {
     pulseStroke: "rgba(250,250,250,0.35)",
   },
   light: {
-    tileUrl:
-      "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    tileUrl: cartoTile("light_all"),
     route: "#1F2937",
     routeWeight: 4,
     routeOpacity: 0.88,

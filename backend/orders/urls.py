@@ -1,14 +1,28 @@
-from django.urls import path
+from django.urls import (
+    path,
+    include,
+)
 
-from .views import OrderListAPIView
+from rest_framework.routers import (
+    DefaultRouter,
+)
 
+from .views import (
+    OrderViewSet,
+)
+
+router = DefaultRouter()
+
+router.register(
+    r"",
+    OrderViewSet,
+    basename="orders"
+)
 
 urlpatterns = [
 
     path(
         "",
-        OrderListAPIView.as_view(),
-        name="orders-list"
+        include(router.urls)
     ),
-
 ]

@@ -17,3 +17,6 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+# Generated Django static files and user uploads
+backend/staticfiles/
+backend/media/

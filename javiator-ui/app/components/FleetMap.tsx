@@ -1,30 +1,26 @@
 "use client";
 
 import {
-
   useEffect,
   useState,
   useRef,
-
+  useMemo,
 } from "react";
 
-import {
-
-  LeafletTrackingMarker,
-
-} from "react-leaflet-tracking-marker";
+import dynamic from "next/dynamic";
 
 import {
-
-  MapContainer,
   TileLayer,
   Popup,
   useMap,
   Marker,
   Polyline,
   CircleMarker,
-
 } from "react-leaflet";
+
+import {
+  LeafletTrackingMarker,
+} from "react-leaflet-tracking-marker";
 
 import L from "leaflet";
 
@@ -35,6 +31,25 @@ from "../styles/theme";
 
 import { apiFetch }
 from "@/services/api";
+
+// =====================================================
+// 🚀 DYNAMIC MAP CONTAINER
+// =====================================================
+
+const MapContainer = dynamic(
+  async () => {
+
+    const mod =
+      await import(
+        "react-leaflet"
+      );
+
+    return mod.MapContainer;
+  },
+  {
+    ssr: false,
+  }
+);
 
 // =====================================================
 // 🚀 TYPES
@@ -99,7 +114,7 @@ type FleetMapProps = {
 };
 
 // =====================================================
-// 🚀 RECENTER MAP
+// 🚀 RECENTER
 // =====================================================
 
 function RecenterMap({
@@ -131,9 +146,9 @@ function RecenterMap({
   return null;
 }
 
-/* ===================================================== */
-/* 🚀 ICONS */
-/* ===================================================== */
+// =====================================================
+// 🚀 ICONS
+// =====================================================
 
 const truckIcon = new L.Icon({
 
@@ -149,21 +164,31 @@ const truckIcon = new L.Icon({
 
 const pickupIcon = new L.Icon({
 
-  iconUrl: "/icons/pickup.svg",
+  iconUrl:
+    "/icons/pickup.svg",
 
-  iconSize: [30, 30],
+  iconSize: [36, 36],
 
-  iconAnchor: [15, 30],
+  iconAnchor: [18, 36],
+
+  popupAnchor: [0, -30],
 });
 
 const dropIcon = new L.Icon({
 
-  iconUrl: "/icons/drop.svg",
+  iconUrl:
+    "/icons/drop.svg",
 
-  iconSize: [30, 30],
+  iconSize: [36, 36],
 
-  iconAnchor: [15, 30],
+  iconAnchor: [18, 36],
+
+  popupAnchor: [0, -30],
 });
+
+// =====================================================
+// 🚀 COMPONENT
+// =====================================================
 
 export default function FleetMap({
 
@@ -175,9 +200,8 @@ export default function FleetMap({
 
 }: FleetMapProps) {
 
-  // =====================================================
-  // 🚀 STATES
-  // =====================================================
+  const [mounted, setMounted] =
+    useState(false);
 
   const [vehicles, setVehicles] =
     useState<Vehicle[]>([]);
@@ -192,9 +216,19 @@ export default function FleetMap({
     Record<number, [number, number]>
   >({});
 
-  /* ===================================================== */
-  /* 🚀 POSITION */
-  /* ===================================================== */
+  // =====================================================
+  // 🚀 MOUNT FIX
+  // =====================================================
+
+  useEffect(() => {
+
+    setMounted(true);
+
+  }, []);
+
+  // =====================================================
+  // 🚀 POSITION
+  // =====================================================
 
   const getVehiclePosition = (
     vehicle: Vehicle
@@ -224,65 +258,63 @@ export default function FleetMap({
     ];
   };
 
-  /* ===================================================== */
-  /* 🚀 FETCH VEHICLES */
-  /* ===================================================== */
+  // =====================================================
+  // 🚀 FETCH DATA
+  // =====================================================
 
-  const fetchVehicles = async () => {
+  const fetchVehicles =
+    async () => {
 
-    try {
+      try {
 
-      const data =
-        await apiFetch(
-          "/api/fleet/vehicles/"
+        const data =
+          await apiFetch(
+            "/api/fleet/vehicles/"
+          );
+
+        setVehicles(
+          Array.isArray(data)
+            ? data
+            : []
         );
 
-      setVehicles(
-        Array.isArray(data)
-          ? data
-          : []
-      );
+      } catch (error) {
 
-    } catch (error) {
+        console.error(
+          "Vehicle fetch error:",
+          error
+        );
+      }
+    };
 
-      console.error(
-        "Vehicle fetch error:",
-        error
-      );
-    }
-  };
+  const fetchOrders =
+    async () => {
 
-  /* ===================================================== */
-  /* 🚀 FETCH ORDERS */
-  /* ===================================================== */
+      try {
 
-  const fetchOrders = async () => {
+        const data =
+          await apiFetch(
+            "/api/orders/"
+          );
 
-    try {
-
-      const data =
-        await apiFetch(
-          "/api/orders/"
+        setOrders(
+          Array.isArray(data)
+            ? data
+            : []
         );
 
-      setOrders(
-        Array.isArray(data)
-          ? data
-          : []
-      );
+      } catch (error) {
 
-    } catch (error) {
+        console.error(
+          "Orders fetch error:",
+          error
+        );
+      }
+    };
 
-      console.error(
-        "Orders fetch error:",
-        error
-      );
-    }
-  };
-
-  /* ===================================================== */
-  /* 🚀 WEBSOCKET */
-  /* ===================================================== */
+  // =====================================================
+  // 🚀 INITIALIZE
+  // =====================================================
 
   useEffect(() => {
 
@@ -290,109 +322,23 @@ export default function FleetMap({
 
     fetchOrders();
 
-    const socketProtocol =
-      window.location.protocol ===
-      "https:"
-        ? "wss"
-        : "ws";
-
-    const socket =
-      new WebSocket(
-        `${socketProtocol}://127.0.0.1:8000/ws/fleet/`
-      );
-
-    socket.onopen = () => {
-
-      console.log(
-        "✅ WebSocket connected"
-      );
-    };
-
-    socket.onmessage = (
-      event
-    ) => {
-
-      let updatedVehicle;
-
-      try {
-
-        updatedVehicle =
-          JSON.parse(event.data);
-
-      } catch (error) {
-
-        console.error(
-          "WebSocket parse error:",
-          error
-        );
-
-        return;
-      }
-
-      setVehicles(
-        (prevVehicles) => {
-
-          const existingVehicle =
-            prevVehicles.find(
-              (v) =>
-                v.id ===
-                updatedVehicle.id
-            );
-
-          if (existingVehicle) {
-
-            previousPositions.current[
-              updatedVehicle.id
-            ] = getVehiclePosition(
-              existingVehicle
-            );
-
-            return prevVehicles.map(
-              (vehicle) =>
-
-                vehicle.id ===
-                updatedVehicle.id
-
-                  ? updatedVehicle
-
-                  : vehicle
-            );
-          }
-
-          return [
-            ...prevVehicles,
-            updatedVehicle,
-          ];
-        }
-      );
-    };
-
-    socket.onclose = () => {
-
-      console.warn(
-        "⚠️ WebSocket disconnected"
-      );
-    };
-
-    const orderInterval =
+    const interval =
       setInterval(() => {
+
+        fetchVehicles();
 
         fetchOrders();
 
       }, 3000);
 
-    return () => {
-
-      clearInterval(orderInterval);
-
-      socket.close();
-    };
+    return () =>
+      clearInterval(interval);
 
   }, []);
 
-  /* ===================================================== */
-  /* 🚀 LIVE SIDEBAR */
-  /* ===================================================== */
+  // =====================================================
+  // 🚀 SIDEBAR SYNC
+  // =====================================================
 
   useEffect(() => {
 
@@ -429,6 +375,15 @@ export default function FleetMap({
       : mapTokens.light;
 
   // =====================================================
+  // 🚀 SSR FIX
+  // =====================================================
+
+  if (!mounted) {
+
+    return null;
+  }
+
+  // =====================================================
   // 🚀 UI
   // =====================================================
 
@@ -437,14 +392,14 @@ export default function FleetMap({
     <div className="h-full w-full">
 
       <MapContainer
+        key={
+          darkMode
+            ? "dark-map"
+            : "light-map"
+        }
         center={[12.9716, 77.5946]}
         zoom={11}
         scrollWheelZoom={true}
-        className={
-          darkMode
-            ? "leaflet-map--dark"
-            : "leaflet-map--light"
-        }
         style={{
           height: "100%",
           width: "100%",
@@ -452,18 +407,11 @@ export default function FleetMap({
       >
 
         <TileLayer
-          key={
-            darkMode
-              ? "dark"
-              : "light"
-          }
           attribution="&copy; OpenStreetMap contributors"
           url={mapTheme.tileUrl}
         />
 
-        {/* ================================================= */}
-        {/* 🚀 AUTO FOLLOW */}
-        {/* ================================================= */}
+        {/* FOLLOW */}
 
         {focusedVehicle && (
 
@@ -479,249 +427,187 @@ export default function FleetMap({
               )[1]
             }
           />
-
         )}
 
-        {/* ================================================= */}
-        {/* 🚚 VEHICLES */}
-        {/* ================================================= */}
+        {/* VEHICLES */}
 
-        {Array.isArray(vehicles) &&
-          vehicles.map((vehicle) => {
+        {vehicles.map((vehicle) => {
 
-            const currentPosition =
-              getVehiclePosition(vehicle);
-
-            return (
-
-              <div key={vehicle.id}>
-
-                {/* ACTIVE ROUTE */}
-
-                {vehicle.route_data &&
-                  vehicle.route_data.length > 0 &&
-                  vehicle.is_moving && (
-
-                    <>
-                      <Polyline
-                        positions={
-                          vehicle.route_data
-                        }
-                        pathOptions={{
-                          color:
-                            mapTheme.routeHalo,
-                          weight:
-                            mapTheme.routeHaloWeight,
-                          opacity:
-                            mapTheme.routeHaloOpacity,
-                          lineCap:
-                            "round",
-                          lineJoin:
-                            "round",
-                        }}
-                      />
-
-                      <Polyline
-                        positions={
-                          vehicle.route_data
-                        }
-                        pathOptions={{
-                          color:
-                            mapTheme.route,
-                          weight:
-                            mapTheme.routeWeight,
-                          opacity:
-                            mapTheme.routeOpacity,
-                          lineCap:
-                            "round",
-                          lineJoin:
-                            "round",
-                        }}
-                      />
-                    </>
-                  )}
-
-                {/* VEHICLE PULSE */}
-
-                {vehicle.is_moving && (
-
-                  <CircleMarker
-                    center={
-                      currentPosition
-                    }
-                    radius={20}
-                    pathOptions={{
-                      color:
-                        mapTheme.pulseStroke,
-                      fillColor:
-                        mapTheme.pulseFill,
-                      fillOpacity: 1,
-                      opacity: 0.5,
-                      weight: 1,
-                    }}
-                  />
-
-                )}
-
-                {/* MOVING VEHICLE */}
-
-                <LeafletTrackingMarker
-                  position={
-                    currentPosition
-                  }
-
-                  previousPosition={
-                    previousPositions
-                      .current[
-                      vehicle.id
-                    ] ||
-                    currentPosition
-                  }
-
-                  duration={900}
-
-                  keepAtCenter={false}
-
-                  icon={truckIcon}
-
-                  eventHandlers={{
-
-                    click: () => {
-
-                      setSelectedVehicle(
-                        vehicle
-                      );
-
-                      setFocusedVehicle(
-                        vehicle
-                      );
-                    },
-                  }}
-                >
-
-                  <Popup>
-
-                    <div className="min-w-[220px] text-sm text-neutral-800">
-
-                      <div className="mb-3">
-
-                        <h3 className="font-semibold text-base text-neutral-900 tracking-tight">
-
-                          {vehicle.name}
-
-                        </h3>
-
-                        <p className="text-neutral-500 text-xs mt-1 capitalize">
-
-                          {
-                            vehicle.vehicle_type
-                          }
-
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                  </Popup>
-
-                </LeafletTrackingMarker>
-
-              </div>
+          const currentPosition =
+            getVehiclePosition(
+              vehicle
             );
-          })}
 
-        {/* ================================================= */}
-        {/* 📦 ACTIVE ORDERS */}
-        {/* ================================================= */}
+          return (
 
-        {Array.isArray(orders) &&
-          orders
-            .filter(
-              (order) =>
-                order.status !==
-                "delivered"
-            )
-            .map((order) => {
+            <div key={vehicle.id}>
 
-              const uniqueKey =
-                `${order.id}-${order.status}`;
+              {/* ROUTE */}
 
-              return (
+              {vehicle.route_data?.length > 0 && (
 
-                <div key={uniqueKey}>
+                <Polyline
+                  positions={
+                    vehicle.route_data
+                  }
+                  pathOptions={{
+                    color:
+                      mapTheme.route,
+                    weight: 5,
+                  }}
+                />
+              )}
 
-                  {/* PICKUP */}
+              {/* PULSE */}
 
-                  <Marker
-                    position={[
-                      order.pickup_lat,
-                      order.pickup_lng,
-                    ]}
-                    icon={pickupIcon}
-                  >
+              {vehicle.is_moving && (
 
-                    <Popup>
+                <CircleMarker
+                  center={
+                    currentPosition
+                  }
+                  radius={18}
+                  pathOptions={{
+                    color:
+                      mapTheme.pulseStroke,
+                    fillColor:
+                      mapTheme.pulseFill,
+                    fillOpacity: 0.4,
+                  }}
+                />
+              )}
 
-                      <div>
+              {/* VEHICLE */}
 
-                        <p className="font-semibold text-neutral-900">
+              <LeafletTrackingMarker
+                position={
+                  currentPosition
+                }
+                previousPosition={
+                  previousPositions
+                    .current[
+                    vehicle.id
+                  ] ||
+                  currentPosition
+                }
+                duration={800}
+                keepAtCenter={false}
+                icon={truckIcon}
+                eventHandlers={{
 
-                          Pickup
+                  click: () => {
 
-                        </p>
+                    setSelectedVehicle(
+                      vehicle
+                    );
 
-                        <p>
+                    setFocusedVehicle(
+                      vehicle
+                    );
+                  },
+                }}
+              >
 
-                          {
-                            order.customer_name
-                          }
+                <Popup>
 
-                        </p>
+                  <div className="text-sm min-w-[200px]">
 
-                      </div>
+                    <h3 className="font-semibold">
 
-                    </Popup>
+                      {vehicle.name}
 
-                  </Marker>
+                    </h3>
 
-                  {/* DROP */}
+                    <p>
 
-                  <Marker
-                    position={[
-                      order.drop_lat,
-                      order.drop_lng,
-                    ]}
-                    icon={dropIcon}
-                  >
+                      Driver:
+                      {" "}
+                      {
+                        vehicle.driver_name
+                      }
 
-                    <Popup>
+                    </p>
 
-                      <div>
+                    <p>
 
-                        <p className="font-semibold text-neutral-900">
+                      Speed:
+                      {" "}
+                      {vehicle.speed}
+                      {" "}
+                      km/h
 
-                          Drop
+                    </p>
 
-                        </p>
+                  </div>
 
-                        <p>
+                </Popup>
 
-                          {
-                            order.customer_name
-                          }
+              </LeafletTrackingMarker>
 
-                        </p>
+            </div>
+          );
+        })}
 
-                      </div>
+        {/* ORDERS */}
 
-                    </Popup>
+        {orders
+          .filter(
+            (order) =>
+              order.status !==
+              "delivered"
+          )
+          .map((order) => (
 
-                  </Marker>
+            <div
+              key={order.id}
+            >
 
-                </div>
-              );
-            })}
+              {/* PICKUP */}
+
+              <Marker
+                position={[
+                  order.pickup_lat,
+                  order.pickup_lng,
+                ]}
+                icon={pickupIcon}
+              >
+
+                <Popup>
+
+                  📦 Pickup:
+                  {" "}
+                  {
+                    order.customer_name
+                  }
+
+                </Popup>
+
+              </Marker>
+
+              {/* DROP */}
+
+              <Marker
+                position={[
+                  order.drop_lat,
+                  order.drop_lng,
+                ]}
+                icon={dropIcon}
+              >
+
+                <Popup>
+
+                  🏁 Drop:
+                  {" "}
+                  {
+                    order.customer_name
+                  }
+
+                </Popup>
+
+              </Marker>
+
+            </div>
+          ))}
 
       </MapContainer>
 

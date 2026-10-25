@@ -4,12 +4,26 @@ from django.utils import timezone
 
 from fleet.models import Vehicle
 
-from channels.layers import get_channel_layer
+from fleet.serializers import (
+    VehicleSerializer
+)
 
-from asgiref.sync import async_to_sync
+from orders.serializers import (
+    OrderSerializer
+)
 
-from fleet.serializers import VehicleSerializer
+from channels.layers import (
+    get_channel_layer
+)
 
+from asgiref.sync import (
+    async_to_sync
+)
+
+
+# =========================================================
+# 🚀 MAIN REALTIME TRACKING ENGINE
+# =========================================================
 
 @shared_task
 def update_vehicle_locations():
@@ -22,6 +36,12 @@ def update_vehicle_locations():
         get_channel_layer()
     )
 
+    updated_count = 0
+
+    # =====================================================
+    # LOOP VEHICLES
+    # =====================================================
+
     for vehicle in vehicles:
 
         route = vehicle.route_data
@@ -32,16 +52,22 @@ def update_vehicle_locations():
 
         total_points = len(route)
 
-        # ===================================================
+        # =================================================
         # ✅ ROUTE COMPLETED
-        # ===================================================
+        # =================================================
 
         if vehicle.route_index >= total_points:
 
             print(
-                f"✅ Vehicle {vehicle.id} "
+
+                f"✅ Vehicle "
+                f"{vehicle.id} "
                 f"completed route"
             )
+
+            # =============================================
+            # VEHICLE RESET
+            # =============================================
 
             vehicle.is_moving = False
 
@@ -57,7 +83,9 @@ def update_vehicle_locations():
 
             vehicle.eta_minutes = 0
 
-            # 🚀 DRIVER ANALYTICS
+            # =============================================
+            # DRIVER ANALYTICS
+            # =============================================
 
             vehicle.total_deliveries += 1
 
@@ -65,20 +93,16 @@ def update_vehicle_locations():
                 timezone.now()
             )
 
-            # AVERAGE SPEED
-
-            if vehicle.total_deliveries > 0:
+            if vehicle.active_hours > 0:
 
                 vehicle.avg_speed = round(
 
                     vehicle.total_distance
 
-                    / vehicle.total_deliveries,
+                    / vehicle.active_hours,
 
                     2
                 )
-
-            # 🚀 AI EFFICIENCY SCORE
 
             fuel_penalty = (
                 vehicle.fuel_consumed
@@ -89,23 +113,29 @@ def update_vehicle_locations():
 
                 max(
 
-                    100
-                    - fuel_penalty
-                    + vehicle.avg_speed,
+                    50,
 
-                    0
+                    min(
+
+                        100,
+
+                        100
+                        - fuel_penalty
+                        + (
+                            vehicle.avg_speed
+                            * 0.1
+                        )
+                    )
                 ),
 
                 2
             )
 
-            # 🚀 SUCCESS RATE
-
             vehicle.success_rate = 100
 
-            # ===================================================
-            # 📦 COMPLETE ORDER
-            # ===================================================
+            # =============================================
+            # COMPLETE ORDER
+            # =============================================
 
             if vehicle.current_order:
 
@@ -119,21 +149,55 @@ def update_vehicle_locations():
 
                 order.delivery_completed = True
 
+                order.delivery_progress = 100
+
+                order.actual_delivery_time = int(
+                    order.estimated_delivery_time
+                )
+
+                order.delivered_at = (
+                    timezone.now()
+                )
+
                 order.save()
 
                 print(
+
                     f"📦 Order "
-                    f"{order.id} "
-                    f"delivered"
+                    f"{order.id} delivered"
+                )
+
+                # =========================================
+                # ORDER WEBSOCKET
+                # =========================================
+
+                order_data = (
+                    OrderSerializer(
+                        order
+                    ).data
+                )
+
+                async_to_sync(
+                    channel_layer.group_send
+                )(
+                    "order_tracking",
+
+                    {
+                        "type":
+                        "send_order_update",
+
+                        "data":
+                        order_data,
+                    }
                 )
 
             vehicle.current_order = None
 
             vehicle.save()
 
-            # ===================================================
-            # 🔥 SEND FINAL WEBSOCKET UPDATE
-            # ===================================================
+            # =============================================
+            # VEHICLE WEBSOCKET
+            # =============================================
 
             vehicle_data = (
                 VehicleSerializer(
@@ -155,11 +219,13 @@ def update_vehicle_locations():
                 }
             )
 
+            updated_count += 1
+
             continue
 
-        # ===================================================
-        # ✅ MOVE VEHICLE
-        # ===================================================
+        # =================================================
+        # 🚚 MOVE VEHICLE
+        # =================================================
 
         point = route[
             vehicle.route_index
@@ -169,21 +235,19 @@ def update_vehicle_locations():
 
         vehicle.current_lng = point[1]
 
-        # ===================================================
-        # 🚀 ROUTE MOVEMENT
-        # ===================================================
+        # =================================================
+        # 🚀 MOVE ROUTE INDEX
+        # =================================================
 
         vehicle.route_index += 8
-
-        # 🚀 DYNAMIC SPEED
 
         vehicle.speed = 60 + (
             vehicle.route_index % 40
         )
 
-        # ===================================================
-        # 🚀 FUEL CONSUMPTION
-        # ===================================================
+        # =================================================
+        # ⛽ FUEL CONSUMPTION
+        # =================================================
 
         fuel_used = 0.3
 
@@ -195,12 +259,9 @@ def update_vehicle_locations():
             0
         )
 
-        # ===================================================
-        # 🚀 DRIVER ANALYTICS TRACKING
-        # ===================================================
-
-        # Assume:
-        # 1 route point ≈ 50 meters
+        # =================================================
+        # 📊 DRIVER ANALYTICS
+        # =================================================
 
         distance_increment = 0.4
 
@@ -212,15 +273,13 @@ def update_vehicle_locations():
             fuel_used
         )
 
-        # Simulated active hours
-
         vehicle.active_hours += (
             0.01
         )
 
-        # ===================================================
-        # 🚀 ETA + DISTANCE
-        # ===================================================
+        # =================================================
+        # 📍 ETA + DISTANCE
+        # =================================================
 
         remaining_points = (
 
@@ -235,10 +294,6 @@ def update_vehicle_locations():
 
             2
         )
-
-        # ===================================================
-        # 🚀 ETA FORMULA
-        # ===================================================
 
         if vehicle.speed > 0:
 
@@ -257,83 +312,174 @@ def update_vehicle_locations():
 
             vehicle.eta_minutes = 0
 
-        # ===================================================
-        # 🚀 ROUTE PROGRESS %
-        # ===================================================
+        # =================================================
+        # 📦 DELIVERY PROGRESS
+        # =================================================
 
-        progress = (
+        progress = round(
 
-            vehicle.route_index
+            min(
 
-            / total_points
+                (
+                    vehicle.route_index
+                    / total_points
+                ) * 100,
 
-        ) * 100
+                100
+            ),
 
-        # ===================================================
-        # 📦 PICKUP STARTED
-        # ===================================================
+            2
+        )
 
-        if (
+        # =================================================
+        # 📦 UPDATE ACTIVE ORDER
+        # =================================================
 
-            vehicle.current_order
+        if vehicle.current_order:
 
-            and progress >= 30
-
-            and vehicle.current_order.status
-            == "assigned"
-        ):
-
-            vehicle.current_order.status = (
-                "pickup_started"
+            order = (
+                vehicle.current_order
             )
 
-            vehicle.current_order.save()
+            # =============================================
+            # UPDATE DELIVERY DATA
+            # =============================================
 
-            print(
-
-                f"📦 Pickup started "
-                f"for Order "
-                f"{vehicle.current_order.id}"
+            order.delivery_progress = (
+                progress
             )
 
-        # ===================================================
-        # 🚚 IN TRANSIT
-        # ===================================================
-
-        if (
-
-            vehicle.current_order
-
-            and progress >= 60
-
-            and vehicle.current_order.status
-            == "pickup_started"
-        ):
-
-            vehicle.current_order.status = (
-                "in_transit"
+            order.delivery_distance_km = (
+                vehicle.remaining_distance
             )
 
-            vehicle.current_order.pickup_completed = True
-
-            vehicle.current_order.save()
-
-            print(
-
-                f"🚚 Order "
-                f"{vehicle.current_order.id} "
-                f"is in transit"
+            order.estimated_delivery_time = int(
+                vehicle.eta_minutes
             )
 
-        # ===================================================
-        # 💾 SAVE VEHICLE
-        # ===================================================
+            # =============================================
+            # AI METRICS
+            # =============================================
+
+            order.traffic_delay_minutes = round(
+
+                vehicle.eta_minutes
+                * 0.1,
+
+                2
+            )
+
+            order.fuel_cost_estimate = round(
+
+                vehicle.fuel_consumed
+                * 1.25,
+
+                2
+            )
+
+            order.carbon_emission_score = round(
+
+                vehicle.total_distance
+                * 0.15,
+
+                2
+            )
+
+            # =============================================
+            # PICKUP STARTED
+            # =============================================
+
+            if (
+
+                progress >= 30
+
+                and order.status
+                == "assigned"
+            ):
+
+                order.status = (
+                    "pickup_started"
+                )
+
+                order.pickup_started_at = (
+                    timezone.now()
+                )
+
+                print(
+
+                    f"📦 Pickup started "
+                    f"for Order "
+                    f"{order.id}"
+                )
+
+            # =============================================
+            # IN TRANSIT
+            # =============================================
+
+            if (
+
+                progress >= 60
+
+                and order.status
+                == "pickup_started"
+            ):
+
+                order.status = (
+                    "in_transit"
+                )
+
+                order.pickup_completed = True
+
+                print(
+
+                    f"🚚 Order "
+                    f"{order.id} "
+                    f"in transit"
+                )
+
+            order.save()
+
+            # =============================================
+            # 🔥 ORDER WEBSOCKET UPDATE
+            # =============================================
+
+            order_data = (
+                OrderSerializer(
+                    order
+                ).data
+            )
+
+            async_to_sync(
+                channel_layer.group_send
+            )(
+                "order_tracking",
+
+                {
+                    "type":
+                    "send_order_update",
+
+                    "data":
+                    order_data,
+                }
+            )
+
+        # =================================================
+        # LOW FUEL LOGIC
+        # =================================================
+
+        if vehicle.fuel_level < 10:
+
+            vehicle.is_available = False
+
+        # =================================================
+        # SAVE VEHICLE
+        # =================================================
 
         vehicle.save()
 
-        # ===================================================
-        # 🔥 LIVE WEBSOCKET UPDATE
-        # ===================================================
+        # =================================================
+        # 🚀 VEHICLE WEBSOCKET UPDATE
+        # =================================================
 
         vehicle_data = (
             VehicleSerializer(
@@ -355,17 +501,23 @@ def update_vehicle_locations():
             }
         )
 
+        updated_count += 1
+
         print(
 
             f"🚚 Vehicle "
-            f"{vehicle.id} moved "
+            f"{vehicle.id}"
 
-            f"{vehicle.route_index}/"
-            f"{total_points}"
+            f" | Progress: "
+            f"{progress}%"
 
             f" | Fuel: "
             f"{vehicle.fuel_level:.1f}%"
 
-            f" | Efficiency: "
-            f"{vehicle.efficiency_score:.1f}"
+            f" | ETA: "
+            f"{vehicle.eta_minutes} min"
         )
+
+    return (
+        f"{updated_count} vehicles updated"
+    )

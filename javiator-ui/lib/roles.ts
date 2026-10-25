@@ -1,54 +1,142 @@
-import type { UserRole } from "@/types/user";
-
 export type RoleCapabilities = {
+
   showKpis: boolean;
+
   showAnalytics: boolean;
+
   showFleetMap: boolean;
+
   showDispatch: boolean;
+
   showAiInsights: boolean;
+
   showActivityFeed: boolean;
-  showOperationalIntel: boolean;
+
+  showFleetManagement: boolean;
 };
 
-const capabilities: Record<UserRole, RoleCapabilities> = {
-  admin: {
-    showKpis: true,
-    showAnalytics: true,
-    showFleetMap: true,
-    showDispatch: true,
-    showAiInsights: true,
-    showActivityFeed: true,
-    showOperationalIntel: true,
-  },
-  manager: {
-    showKpis: true,
-    showAnalytics: true,
-    showFleetMap: true,
-    showDispatch: true,
-    showAiInsights: false,
-    showActivityFeed: true,
-    showOperationalIntel: false,
-  },
-  driver: {
-    showKpis: true,
-    showAnalytics: false,
-    showFleetMap: true,
-    showDispatch: true,
-    showAiInsights: false,
-    showActivityFeed: false,
-    showOperationalIntel: false,
-  },
-  client: {
+
+export const getRoleCapabilities = (
+  role?: string | null
+): RoleCapabilities => {
+
+  const normalizedRole =
+    role?.toLowerCase() || "";
+
+  // =====================================================
+  // 🚀 ADMIN
+  // =====================================================
+
+  if (normalizedRole === "admin") {
+
+    return {
+
+      showKpis: true,
+
+      showAnalytics: true,
+
+      showFleetMap: true,
+
+      showDispatch: true,
+
+      showAiInsights: true,
+
+      showActivityFeed: true,
+
+      showFleetManagement: true,
+    };
+  }
+
+  // =====================================================
+  // 🚀 MANAGER
+  // =====================================================
+
+  if (normalizedRole === "manager") {
+
+    return {
+
+      showKpis: true,
+
+      showAnalytics: true,
+
+      showFleetMap: true,
+
+      showDispatch: true,
+
+      showAiInsights: true,
+
+      showActivityFeed: true,
+
+      showFleetManagement: true,
+    };
+  }
+
+  // =====================================================
+  // 🚀 DRIVER
+  // =====================================================
+
+  if (normalizedRole === "driver") {
+
+    return {
+
+      showKpis: true,
+
+      showAnalytics: false,
+
+      showFleetMap: true,
+
+      showDispatch: true,
+
+      showAiInsights: false,
+
+      showActivityFeed: false,
+
+      showFleetManagement: false,
+    };
+  }
+
+  // =====================================================
+  // 🚀 CLIENT
+  // =====================================================
+
+  if (normalizedRole === "client") {
+
+    return {
+
+      showKpis: false,
+
+      showAnalytics: false,
+
+      showFleetMap: true,
+
+      showDispatch: false,
+
+      showAiInsights: false,
+
+      showActivityFeed: false,
+
+      showFleetManagement: false,
+    };
+  }
+
+  // =====================================================
+  // 🚀 DEFAULT
+  // =====================================================
+
+  return {
+
     showKpis: false,
-    showAnalytics: false,
-    showFleetMap: true,
-    showDispatch: false,
-    showAiInsights: false,
-    showActivityFeed: false,
-    showOperationalIntel: false,
-  },
-};
 
-export function getRoleCapabilities(role: UserRole): RoleCapabilities {
-  return capabilities[role];
-}
+    showAnalytics: false,
+
+    showFleetMap: false,
+
+    showDispatch: false,
+
+    showAiInsights: false,
+
+    showActivityFeed: false,
+
+    showFleetManagement: false,
+  };
+};

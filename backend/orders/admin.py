@@ -12,10 +12,35 @@ class OrderAdmin(admin.ModelAdmin):
 
         "customer_name",
 
+        "priority",
+
         "status",
 
         "assigned_vehicle",
 
-        "created_at",
+        "estimated_delivery_time",
 
+        "delivery_completed",
+
+        "created_at",
+    )
+
+    list_filter = (
+
+        "status",
+
+        "priority",
+
+        "delivery_completed",
+    )
+
+    search_fields = (
+
+        "customer_name",
+
+        "customer_phone",
+    )
+
+    ordering = (
+        "-created_at",
     )

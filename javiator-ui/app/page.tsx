@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { apiFetch } from "@/services/api";
@@ -11,11 +11,17 @@ import type { CurrentUser } from "@/types/user";
 import { normalizeRole } from "@/types/user";
 
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
+import VehicleTable from "./components/VehicleTable";
+import OrderTable from "./components/OrderTable";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 import KpiGrid from "./components/layout/KPIGrid";
 import DispatchPanel from "./components/layout/DispatchPanel";
 import ClientTrackingPanel from "./components/layout/ClientTrackingPanel";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
 
 type FleetKpis = {
   total_vehicles: number;
@@ -40,24 +46,30 @@ type Vehicle = {
   route_index: number;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Lazy-load FleetMap (Leaflet requires browser APIs — no SSR)
+// ─────────────────────────────────────────────────────────────────────────────
+
 const FleetMap = dynamic(() => import("./components/FleetMap"), {
   ssr: false,
   loading: () => (
     <div className="h-full w-full flex items-center justify-center bg-[#050505] text-[#71717A]">
       <div className="text-center">
-        <h2 className="text-lg font-semibold text-[#FAFAFA]">
-          Loading fleet intelligence
-        </h2>
-        <p className="mt-2 text-sm">
-          Connecting to realtime logistics network...
-        </p>
+        <h2 className="text-lg font-semibold text-[#FAFAFA]">Loading fleet intelligence</h2>
+        <p className="mt-2 text-sm">Connecting to realtime logistics network...</p>
       </div>
     </div>
   ),
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Page
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function Home() {
   const router = useRouter();
+
+  // ── State ──────────────────────────────────────────────────────────────────
 
   const [darkMode, setDarkMode] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -70,19 +82,15 @@ export default function Home() {
     low_fuel_vehicles: 0,
   });
 
+  // ── RBAC ───────────────────────────────────────────────────────────────────
+
   const role = normalizeRole(currentUser?.role);
-  const caps = useMemo(() => getRoleCapabilities(role), [role]);
+  const caps = useMemo(() => getRoleCapabilities(role || ""), [role]);
 
-  const loadUser = async () => {
-    try {
-      const user = await getCurrentUser();
-      setCurrentUser(user);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  // ── Stable async callbacks ─────────────────────────────────────────────────
+  // useCallback ensures intervals never hold a stale closure reference.
 
-  const fetchKpis = async () => {
+  const fetchKpis = useCallback(async () => {
     try {
       const data = await apiFetch("/api/fleet/kpis/");
       if (data) {
@@ -96,9 +104,27 @@ export default function Home() {
     } catch (error) {
       console.error("KPI fetch error:", error);
     }
-  };
+  }, []);
+
+  const loadUser = useCallback(async () => {
+    try {
+      const user = await getCurrentUser();
+      setCurrentUser(user);
+    } catch (err) {
+      console.error("User load error:", err);
+    }
+  }, []);
+
+  // ── Initialization — runs exactly once on mount ────────────────────────────
+  // useRef guard prevents React 18 StrictMode double-invoke from hitting the
+  // router redirect twice, and avoids adding `router` as a re-run trigger.
+
+  const initialized = useRef(false);
 
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
     const initialize = async () => {
       try {
         const token = localStorage.getItem("access");
@@ -106,7 +132,6 @@ export default function Home() {
           router.push("/login");
           return;
         }
-
         await Promise.all([loadUser(), fetchKpis()]);
       } catch (error) {
         console.error("Initialization error:", error);
@@ -116,16 +141,23 @@ export default function Home() {
     };
 
     initialize();
-  }, [router]);
+  }, [router, loadUser, fetchKpis]);
+
+  // ── Auto-refresh KPIs every 5 s ───────────────────────────────────────────
 
   useEffect(() => {
     if (loading || !caps.showKpis) return;
-
-    const interval = setInterval(fetchKpis, 5000);
+    const interval = setInterval(fetchKpis, 5_000);
     return () => clearInterval(interval);
-  }, [loading, caps.showKpis]);
+  }, [loading, caps.showKpis, fetchKpis]);
 
-  const mainColSpan = caps.showDispatch || role === "client" ? 9 : 12;
+  // ── Derived layout flag ────────────────────────────────────────────────────
+  // NOTE: Never use `col-span-${n}` — Tailwind purges dynamic class names at
+  // build time. Drive column spans via inline style instead.
+
+  const hasRightPanel = caps.showDispatch || role === "client";
+
+  // ── Loading screen ─────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -140,15 +172,37 @@ export default function Home() {
     );
   }
 
+  // ── Main UI ────────────────────────────────────────────────────────────────
+  //
+  // Scroll architecture:
+  //   <main>              h-screen overflow-hidden  → locks shell to viewport
+  //     <Sidebar>                                   → never scrolls
+  //     <div>             flex-1 overflow-hidden    → content column
+  //       <Topbar>                                  → pinned, never scrolls
+  //       <div>           flex-1 overflow-y-auto    → ONLY this region scrolls
+  //         <grid>
+  //           <main-col>
+  //           <right-panel>
+  //         </grid>
+  //       </div>
+  //     </div>
+  //   </main>
+
   return (
     <main
-      className={`h-screen w-screen overflow-hidden flex transition-colors duration-300 ease-out ${
-        darkMode ? "dark-shell bg-[#050505] text-[#FAFAFA]" : "bg-[#F9FAFB] text-[#111827]"
+      className={`h-screen w-screen flex overflow-hidden transition-colors duration-300 ease-out ${
+        darkMode
+          ? "dark-shell bg-[#050505] text-[#FAFAFA]"
+          : "bg-[#F9FAFB] text-[#111827]"
       }`}
     >
+      {/* Sidebar */}
       <Sidebar darkMode={darkMode} currentUser={currentUser} role={role} />
 
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+      {/* Content column */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+        {/* Topbar — stays pinned while body scrolls */}
         <Topbar
           darkMode={darkMode}
           setDarkMode={setDarkMode}
@@ -156,67 +210,93 @@ export default function Home() {
           role={role}
         />
 
-        <div className="flex-1 grid grid-cols-12 gap-5 p-5 lg:gap-6 lg:p-6 overflow-hidden">
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto">
           <div
-            className={`col-span-${mainColSpan} flex flex-col gap-5 lg:gap-6 overflow-y-auto pr-1 min-h-0`}
-            style={{ gridColumn: `span ${mainColSpan} / span ${mainColSpan}` }}
+            className="grid gap-5 p-5 lg:gap-6 lg:p-6"
+            style={{ gridTemplateColumns: "repeat(12, minmax(0, 1fr))" }}
           >
-            {caps.showKpis && (
-              <KpiGrid darkMode={darkMode} kpis={kpis} compact={role === "driver"} />
-            )}
 
-            {role === "driver" && (
-              <div
-                className={`rounded-2xl border px-4 py-3 flex flex-wrap items-center gap-4 text-sm ${
-                  darkMode
-                    ? "bg-[#111111] border-white/[0.05]"
-                    : "bg-white border-[#E5E7EB]"
-                }`}
-              >
-                <span className={darkMode ? "text-[#A1A1AA]" : "text-[#6B7280]"}>
-                  Route optimization active
-                </span>
-                <span className="h-1 w-1 rounded-full bg-white/20" />
-                <span className={darkMode ? "text-[#FAFAFA]" : "text-[#111827]"}>
-                  {kpis.low_fuel_vehicles > 0
-                    ? `${kpis.low_fuel_vehicles} vehicle(s) below fuel threshold`
-                    : "Fuel levels within operational range"}
-                </span>
+            {/* ── Main section ─────────────────────────────────────────── */}
+            <div
+              className="flex flex-col gap-5 lg:gap-6"
+              style={{
+                gridColumn: hasRightPanel ? "span 9 / span 9" : "span 12 / span 12",
+              }}
+            >
+              {/* KPI Grid */}
+              {caps.showKpis && (
+                <KpiGrid darkMode={darkMode} kpis={kpis} compact={role === "driver"} />
+              )}
+
+              {/* Driver status banner */}
+              {role === "driver" && (
+                <div
+                  className={`rounded-2xl border px-4 py-3 flex flex-wrap items-center gap-4 text-sm ${
+                    darkMode ? "bg-[#111111] border-white/[0.05]" : "bg-white border-[#E5E7EB]"
+                  }`}
+                >
+                  <span className={darkMode ? "text-[#A1A1AA]" : "text-[#6B7280]"}>
+                    Route optimization active
+                  </span>
+                  <span className="h-1 w-1 rounded-full bg-white/20" />
+                  <span className={darkMode ? "text-[#FAFAFA]" : "text-[#111827]"}>
+                    {kpis.low_fuel_vehicles > 0
+                      ? `${kpis.low_fuel_vehicles} vehicle(s) below fuel threshold`
+                      : "Fuel levels within operational range"}
+                  </span>
+                </div>
+              )}
+
+              {/* Analytics dashboard */}
+              {caps.showAnalytics && <AnalyticsDashboard darkMode={darkMode} />}
+
+              {/* Vehicle table — admin / manager only */}
+              {(role === "admin" || role === "manager") && (
+                <VehicleTable darkMode={darkMode} />
+              )}
+
+              {/* Order table — admin / manager only */}
+              {(role === "admin" || role === "manager") && (
+                <OrderTable darkMode={darkMode} />
+              )}
+
+              {/* Fleet map */}
+              {caps.showFleetMap && (
+                <div
+                  className={`rounded-3xl overflow-hidden border h-[500px] transition-all duration-300 ${
+                    darkMode
+                      ? "border-white/[0.05] bg-[#0D0D0D]"
+                      : "border-[#E5E7EB] bg-white"
+                  }`}
+                >
+                  <FleetMap
+                    darkMode={darkMode}
+                    selectedVehicle={selectedVehicle}
+                    setSelectedVehicle={setSelectedVehicle}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* ── Right panel (3 cols) ──────────────────────────────────── */}
+            {role === "client" ? (
+              <div style={{ gridColumn: "span 3 / span 3" }}>
+                <ClientTrackingPanel darkMode={darkMode} />
               </div>
-            )}
-
-            {caps.showAnalytics && (
-              <AnalyticsDashboard darkMode={darkMode} />
-            )}
-
-            {caps.showFleetMap && (
-              <div
-                className={`rounded-3xl overflow-hidden border min-h-[520px] lg:min-h-[640px] transition-all duration-300 ${
-                  darkMode
-                    ? "border-white/[0.05] bg-[#0D0D0D] shadow-[0_24px_64px_rgba(0,0,0,0.45)]"
-                    : "border-[#E5E7EB] bg-white shadow-[0_12px_40px_rgba(15,23,42,0.06)]"
-                }`}
-              >
-                <FleetMap
+            ) : caps.showDispatch ? (
+              <div style={{ gridColumn: "span 3 / span 3" }}>
+                <DispatchPanel
                   darkMode={darkMode}
                   selectedVehicle={selectedVehicle}
-                  setSelectedVehicle={setSelectedVehicle}
+                  showAiInsights={caps.showAiInsights}
+                  showActivityFeed={caps.showActivityFeed}
+                  variant={role === "driver" ? "driver" : "operations"}
                 />
               </div>
-            )}
-          </div>
+            ) : null}
 
-          {role === "client" ? (
-            <ClientTrackingPanel darkMode={darkMode} />
-          ) : caps.showDispatch ? (
-            <DispatchPanel
-              darkMode={darkMode}
-              selectedVehicle={selectedVehicle}
-              showAiInsights={caps.showAiInsights}
-              showActivityFeed={caps.showActivityFeed}
-              variant={role === "driver" ? "driver" : "operations"}
-            />
-          ) : null}
+          </div>
         </div>
       </div>
     </main>

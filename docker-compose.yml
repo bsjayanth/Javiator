@@ -1,7 +1,4 @@
-version: '3.9'
-
 services:
-
   web:
     build:
       context: .
@@ -17,8 +14,12 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - PYTHONPATH=/app
-      - DJANGO_SETTINGS_MODULE=config.settings
+      PYTHONPATH: /app
+      DJANGO_SETTINGS_MODULE: config.settings
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DEBUG: ${DEBUG:-True}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,web}
+      ORS_API_KEY: ${ORS_API_KEY}
     depends_on:
       - redis
       - db
@@ -31,8 +32,12 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      - PYTHONPATH=/app
-      - DJANGO_SETTINGS_MODULE=config.settings
+      PYTHONPATH: /app
+      DJANGO_SETTINGS_MODULE: config.settings
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DEBUG: ${DEBUG:-True}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,web}
+      ORS_API_KEY: ${ORS_API_KEY}
     depends_on:
       - redis
       - db
@@ -45,8 +50,12 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      - PYTHONPATH=/app
-      - DJANGO_SETTINGS_MODULE=config.settings
+      PYTHONPATH: /app
+      DJANGO_SETTINGS_MODULE: config.settings
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DEBUG: ${DEBUG:-True}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,web}
+      ORS_API_KEY: ${ORS_API_KEY}
     depends_on:
       - redis
       - db
@@ -66,8 +75,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data   # ✅ THIS IS THE FIX
+      - postgres_data:/var/lib/postgresql/data
 
-# 👇 ADD THIS BLOCK (VERY IMPORTANT)
 volumes:
   postgres_data:

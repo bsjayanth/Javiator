@@ -1,13 +1,10 @@
-const API_BASE =
-  "http://127.0.0.1:8000";
+const API_BASE = "http://127.0.0.1:8000";
 
 export async function apiFetch(
   endpoint: string,
   options: RequestInit = {}
 ) {
-
-  const token =
-    localStorage.getItem("access");
+  const token = localStorage.getItem("access");
 
   const response = await fetch(
     `${API_BASE}${endpoint}`,
@@ -15,42 +12,55 @@ export async function apiFetch(
       ...options,
 
       headers: {
+        "Content-Type": "application/json",
 
-        "Content-Type":
-          "application/json",
-
-        Authorization:
-          `Bearer ${token}`,
+        ...(token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : {}),
 
         ...options.headers,
       },
     }
   );
 
+  // ============================================
+  // 🔒 HANDLE UNAUTHORIZED
+  // ============================================
+
   if (response.status === 401) {
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
 
-    localStorage.removeItem(
-      "access"
-    );
+    window.location.href = "/login";
 
-    localStorage.removeItem(
-      "refresh"
-    );
-
-    window.location.href =
-      "/login";
-
-    throw new Error(
-      "Unauthorized"
-    );
+    throw new Error("Unauthorized");
   }
+
+  // ============================================
+  // ❌ HANDLE API ERRORS
+  // ============================================
 
   if (!response.ok) {
+    let errorMessage = `API Error ${response.status}`;
 
-    throw new Error(
-      `API Error ${response.status}`
-    );
+    try {
+      const errorData = await response.json();
+
+      if (errorData.detail) {
+        errorMessage = errorData.detail;
+      }
+    } catch {}
+
+    throw new Error(errorMessage);
   }
 
-  return response.json();
+  // ============================================
+  // ✅ HANDLE EMPTY RESPONSES
+  // ============================================
+
+  const text = await response.text();
+
+  return text ? JSON.parse(text) : {};
 }

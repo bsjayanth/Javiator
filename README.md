@@ -26,9 +26,9 @@ Javiator/
 │   ├── lib/                  # Role-based UI capability helpers
 │   └── types/                # Shared TypeScript models
 ├── docs/
-│   ├── PROGRESS_LOG.md       # Incremental development & verification log
-│   └── PROJECT_PRODUCTION_READINESS_REPORT.md  # Historical architecture audit
+│   └── PROJECT_PRODUCTION_READINESS_REPORT.md  # Architecture & readiness audit
 ├── docker-compose.yml        # Local stack: Daphne, Celery worker/beat, Redis, PostGIS/Postgres
+├── CHANGELOG.md              # Project history aligned with Git commits
 └── .env.example              # Safe environment-variable template
 ```
 
@@ -42,7 +42,7 @@ Javiator/
 | **Order Dispatch & Routing** | Implemented (heuristic): Atomic `select_for_update()` vehicle selection using a weighted distance/fuel/capacity/speed heuristic + OpenRouteService road polylines. Not an ML model or multi-stop VRP solver. |
 | **Live Vehicle Tracking** | Simulated: Celery steps active vehicles along decoded route polylines, updating progress, fuel, and ETA. |
 | **Health & Configuration** | Implemented: Env-driven `DATABASE_URL`, `REDIS_URL`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS`, and `/healthz/` + `/readyz/` endpoints. |
-| **Analytics & WebSockets** | In progress (see [docs/PROGRESS_LOG.md](docs/PROGRESS_LOG.md) for upcoming Day 2–3 milestones). |
+| **Analytics & WebSockets** | In progress: JWT WebSocket authentication, live fleet map push updates, and PostgreSQL-aggregated analytics. |
 
 ---
 
@@ -79,6 +79,12 @@ Open `http://localhost:3000`. By default the frontend connects to `http://127.0.
 
 ---
 
-## Progress & Roadmap
+## Planned Improvements
 
-Active development milestones, verification records, and free-tier deployment notes are tracked in [docs/PROGRESS_LOG.md](docs/PROGRESS_LOG.md).
+- JWT-authenticated WebSockets (`ws/fleet/`, `ws/orders/`) and real-time map push updates
+- Event-driven dispatch with OpenRouteService route caching and deduplicated alerts
+- Live PostgreSQL-backed analytics aggregations and charts
+- Automated Django test suite and GitHub Actions CI
+- Seeded demo accounts and free-tier deployment setup
+
+For past milestones from May 2026 onward, see [CHANGELOG.md](CHANGELOG.md).

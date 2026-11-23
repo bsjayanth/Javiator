@@ -1,8 +1,12 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+
+from rest_framework.permissions import IsAuthenticated
 
 from rest_framework.response import Response
 
 from rest_framework import status
+
+from accounts.permissions import IsAdminOrManager
 
 from .models import Notification
 
@@ -12,6 +16,7 @@ from .models import Notification
 # =====================================================
 
 @api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def get_notifications(request):
 
     notifications = Notification.objects.all()[:30]
@@ -66,6 +71,7 @@ def get_notifications(request):
 # =====================================================
 
 @api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def unread_notification_count(request):
 
     unread_count = (
@@ -86,6 +92,7 @@ def unread_notification_count(request):
 # =====================================================
 
 @api_view(["POST"])
+@permission_classes([IsAdminOrManager])
 def mark_notification_read(
     request,
     notification_id
@@ -127,6 +134,7 @@ def mark_notification_read(
 # =====================================================
 
 @api_view(["POST"])
+@permission_classes([IsAdminOrManager])
 def mark_all_notifications_read(
     request
 ):

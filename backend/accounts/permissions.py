@@ -179,3 +179,33 @@ class FleetAccessPermission(
             return False
 
         return False
+
+
+# =====================================================
+# ADMIN / MANAGER WRITE ACCESS
+# =====================================================
+
+class IsAdminOrManager(BasePermission):
+    """Allow access only to admin/manager roles or Django superusers."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and (user.is_superuser or user.role in ("admin", "manager"))
+        )
+
+
+class IsAdminOrManagerOrReadOnly(BasePermission):
+    """Allow authenticated read-only access; restrict mutations to admin/manager."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+
+        if request.method in SAFE_METHODS:
+            return True
+
+        return bool(user.is_superuser or user.role in ("admin", "manager"))

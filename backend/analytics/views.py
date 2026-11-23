@@ -3,9 +3,7 @@ from rest_framework.decorators import (
     permission_classes,
 )
 
-from rest_framework.permissions import (
-    IsAuthenticated,
-)
+from accounts.permissions import IsAdminOrManager
 
 from rest_framework.response import (
     Response,
@@ -14,7 +12,7 @@ from rest_framework.response import (
 
 @api_view(["GET"])
 
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrManager])
 
 def dashboard_metrics(request):
 

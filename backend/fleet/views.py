@@ -20,6 +20,10 @@ from .serializers import (
     VehicleSerializer,
 )
 
+from accounts.permissions import (
+    IsAdminOrManager,
+    IsAdminOrManagerOrReadOnly,
+)
 from orders.models import Order
 
 import random
@@ -42,7 +46,7 @@ class VehicleViewSet(
     )
 
     permission_classes = [
-        IsAuthenticated,
+        IsAdminOrManagerOrReadOnly,
     ]
 
 
@@ -223,7 +227,7 @@ def fleet_kpis(request):
 @api_view(["POST"])
 
 @permission_classes([
-    IsAuthenticated,
+    IsAdminOrManager,
 ])
 
 def simulate_vehicle_movement(

@@ -12,9 +12,9 @@ This log tracks each session, completed changes, verification results, and pendi
 
 ---
 
-## Day 1 — Completed (Uncommitted; Awaiting Review & Commit Approval)
+## Day 1 — Completed & Pushed (`76e8f11`..`f1aa59b` on `origin/main`)
 
-### Implemented Steps
+### Implemented & Committed Steps
 - [x] **Step 1 — Repo Hygiene & Onboarding Template**
   - Fixed stray markdown fences in `.gitignore`.
   - Added `.env.example` with safe placeholders for all backend and Next.js environment variables.
@@ -55,12 +55,21 @@ This log tracks each session, completed changes, verification results, and pendi
 
 ---
 
-## Ready for Day 2 Start (Pending Your Approval)
-1. **Commit Day 1 work** (proposed 5 focused commits — no commits have been made yet):
-   1. `chore: fix gitignore fences, add env example, and start progress log`
-   2. `feat(config): support DATABASE_URL, REDIS_URL, and env-driven CORS/CSRF`
-   3. `feat(api): enable JWT token blacklist app and add healthz/readyz probes`
-   4. `feat(ui): centralize env-driven API/WS clients with silent token refresh`
-   5. `fix(contracts): align fleet KPIs, order serializer progress/ETA, and vehicle table role prop`
-2. **Approve Step 2 per-item deletions** (if desired): `frontend/`, `backend/dispatch/delivery_simulator.py`, `backend/tracking/consumers.py` + `backend/tracking/routing.py`, unused `User` model in `backend/users/models.py`.
-3. **Begin Day 2:** Server-side RBAC, WebSocket group/JWT auth, event-driven dispatch + Render free-tier demo mode, real PostgreSQL analytics, and automated tests.
+## Day 2 — Session Log
+
+### Completed Steps
+- [x] **Day 2 · Step 1 — Server-Side RBAC & Telemetry Write Protection**
+  - Added `IsAdminOrManager` and `IsAdminOrManagerOrReadOnly` in `backend/accounts/permissions.py`.
+  - Applied `IsAdminOrManagerOrReadOnly` to `VehicleViewSet` and `OrderViewSet`.
+  - Restricted `simulate_vehicle_movement`, `analytics/dashboard/`, `mark_notification_read`, and `mark_all_notifications_read` to `IsAdminOrManager` (explicit `IsAuthenticated` on notification reads).
+  - Protected server-managed telemetry fields on `VehicleSerializer` via `read_only_fields`.
+  - **Checks:** `manage.py check` passed (0 issues); in-memory SQLite API permission matrix passed (anonymous `401`, client/driver read `200` + write/simulate/analytics `403`, manager write `201` with read-only `efficiency_score`/`total_deliveries` preserved).
+
+### Upcoming Day 2 Steps
+- [ ] **Day 2 · Step 2:** WebSocket group fix (`orders` vs `order_tracking`), JWT WebSocket auth middleware, and live `ws/fleet/` subscription in `FleetMap`.
+- [ ] **Day 2 · Step 3:** Event-driven dispatch, ORS route caching, deduplicated notifications, and Render free-tier single-service demo mode.
+- [ ] **Day 2 · Step 4:** Real PostgreSQL analytics aggregations, restored Recharts charts, and honest rule-based operational insights.
+- [ ] **Day 2 · Step 5:** Automated Django test suite + pre-existing `javiator-ui` ESLint cleanup.
+
+### Pending Per-Item Deletions (Held for Explicit Approval)
+- `frontend/`, `backend/dispatch/delivery_simulator.py`, `backend/tracking/consumers.py` + `backend/tracking/routing.py`, unused `User` model in `backend/users/models.py`.

@@ -58,18 +58,19 @@ This log tracks each session, completed changes, verification results, and pendi
 ## Day 2 — Session Log
 
 ### Completed Steps
-- [x] **Day 2 · Step 1 — Server-Side RBAC & Telemetry Write Protection**
+- [x] **Day 2 · Step 1 — Server-Side RBAC & Telemetry Write Protection (`cb05867`)**
   - Added `IsAdminOrManager` and `IsAdminOrManagerOrReadOnly` in `backend/accounts/permissions.py`.
   - Applied `IsAdminOrManagerOrReadOnly` to `VehicleViewSet` and `OrderViewSet`.
   - Restricted `simulate_vehicle_movement`, `analytics/dashboard/`, `mark_notification_read`, and `mark_all_notifications_read` to `IsAdminOrManager` (explicit `IsAuthenticated` on notification reads).
   - Protected server-managed telemetry fields on `VehicleSerializer` via `read_only_fields`.
   - **Checks:** `manage.py check` passed (0 issues); in-memory SQLite API permission matrix passed (anonymous `401`, client/driver read `200` + write/simulate/analytics `403`, manager write `201` with read-only `efficiency_score`/`total_deliveries` preserved).
+- [x] **Repository Structure & Cleanup**
+  - Removed legacy Vite prototype (`frontend/`), unused `backend/dispatch/delivery_simulator.py`, unused `backend/tracking/consumers.py` + `routing.py`, empty `backend/config/migrations/`, and unused `create-next-app` starter SVGs in `javiator-ui/public/`.
+  - Removed unused duplicate `User` class from `backend/users/models.py` (preserving active `/api/users/login/`).
+  - Added root `README.md` and replaced boilerplate `javiator-ui/README.md`.
 
-### Upcoming Day 2 Steps
+### Upcoming Day 2 Steps (Resume Next Session)
 - [ ] **Day 2 · Step 2:** WebSocket group fix (`orders` vs `order_tracking`), JWT WebSocket auth middleware, and live `ws/fleet/` subscription in `FleetMap`.
 - [ ] **Day 2 · Step 3:** Event-driven dispatch, ORS route caching, deduplicated notifications, and Render free-tier single-service demo mode.
 - [ ] **Day 2 · Step 4:** Real PostgreSQL analytics aggregations, restored Recharts charts, and honest rule-based operational insights.
 - [ ] **Day 2 · Step 5:** Automated Django test suite + pre-existing `javiator-ui` ESLint cleanup.
-
-### Pending Per-Item Deletions (Held for Explicit Approval)
-- `frontend/`, `backend/dispatch/delivery_simulator.py`, `backend/tracking/consumers.py` + `backend/tracking/routing.py`, unused `User` model in `backend/users/models.py`.

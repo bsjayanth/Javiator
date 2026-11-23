@@ -1,12 +1,3 @@
-from django.contrib.auth.models import AbstractUser
-from django.db import models
-
-class User(AbstractUser):
-    ROLE_CHOICES = (
-        ('admin', 'Admin'),
-        ('manager', 'Manager'),
-        ('driver', 'Driver'),
-        ('client', 'Client'),
-    )
-
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+# Authentication uses the custom user model defined in `accounts.models.User`
+# (`AUTH_USER_MODEL = "accounts.User"`). This app currently exposes the
+# `/api/users/login/` endpoint in `users/views.py` and `users/urls.py`.

@@ -32,6 +32,11 @@ from "../styles/theme";
 import { apiFetch }
 from "@/services/api";
 
+import {
+  connectFleetSocket,
+  disconnectFleetSocket,
+} from "@/services/fleetSocket";
+
 // =====================================================
 // 🚀 DYNAMIC MAP CONTAINER
 // =====================================================
@@ -322,6 +327,20 @@ export default function FleetMap({
 
     fetchOrders();
 
+    connectFleetSocket((payload) => {
+      if (typeof payload.id !== "number") {
+        return;
+      }
+      const updated = payload as unknown as Vehicle;
+      setVehicles((prev) => {
+        const exists = prev.some((v) => v.id === updated.id);
+        if (exists) {
+          return prev.map((v) => (v.id === updated.id ? { ...v, ...updated } : v));
+        }
+        return [...prev, updated];
+      });
+    });
+
     const interval =
       setInterval(() => {
 
@@ -329,10 +348,12 @@ export default function FleetMap({
 
         fetchOrders();
 
-      }, 3000);
+      }, 15000);
 
-    return () =>
+    return () => {
       clearInterval(interval);
+      disconnectFleetSocket();
+    };
 
   }, []);
 

@@ -1,44 +1,27 @@
 import os
 
-from channels.auth import (
-    AuthMiddlewareStack
+from channels.routing import ProtocolTypeRouter, URLRouter
+from django.core.asgi import get_asgi_application
+
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+
+# Initialize Django ASGI app before importing modules that touch models/auth.
+django_asgi_app = get_asgi_application()
+
+from config.ws_auth import JWTAuthMiddleware  # noqa: E402
+import fleet.routing  # noqa: E402
+import orders.routing  # noqa: E402
+
+
+application = ProtocolTypeRouter(
+    {
+        "http": django_asgi_app,
+        "websocket": JWTAuthMiddleware(
+            URLRouter(
+                fleet.routing.websocket_urlpatterns
+                + orders.routing.websocket_urlpatterns
+            )
+        ),
+    }
 )
-
-from channels.routing import (
-    ProtocolTypeRouter,
-    URLRouter,
-)
-
-from django.core.asgi import (
-    get_asgi_application
-)
-
-import fleet.routing
-import orders.routing
-
-
-os.environ.setdefault(
-    "DJANGO_SETTINGS_MODULE",
-    "config.settings"
-)
-
-django_asgi_app = (
-    get_asgi_application()
-)
-
-application = ProtocolTypeRouter({
-
-    "http": django_asgi_app,
-
-    "websocket": AuthMiddlewareStack(
-
-        URLRouter(
-
-            fleet.routing.websocket_urlpatterns
-
-            +
-
-            orders.routing.websocket_urlpatterns
-        )
-    ),
-})

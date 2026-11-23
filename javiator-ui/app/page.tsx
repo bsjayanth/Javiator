@@ -28,6 +28,8 @@ type FleetKpis = {
   active_vehicles: number;
   moving_vehicles: number;
   low_fuel_vehicles: number;
+  total_orders: number;
+  order_fulfillment: number | null;
 };
 
 type Vehicle = {
@@ -80,6 +82,8 @@ export default function Home() {
     active_vehicles: 0,
     moving_vehicles: 0,
     low_fuel_vehicles: 0,
+    total_orders: 0,
+    order_fulfillment: null,
   });
 
   // ── RBAC ───────────────────────────────────────────────────────────────────
@@ -94,11 +98,17 @@ export default function Home() {
     try {
       const data = await apiFetch("/api/fleet/kpis/");
       if (data) {
+        const totalOrders = Number(data.total_orders) || 0;
         setKpis({
           total_vehicles: Number(data.total_vehicles) || 0,
           active_vehicles: Number(data.active_vehicles) || 0,
-          moving_vehicles: Number(data.moving_vehicles) || 0,
-          low_fuel_vehicles: Number(data.low_fuel_vehicles) || 0,
+          moving_vehicles: Number(data.moving_vehicles ?? data.moving_now) || 0,
+          low_fuel_vehicles: Number(data.low_fuel_vehicles ?? data.low_fuel) || 0,
+          total_orders: totalOrders,
+          order_fulfillment:
+            totalOrders > 0 && data.order_fulfillment != null
+              ? Math.round(Number(data.order_fulfillment))
+              : null,
         });
       }
     } catch (error) {
@@ -253,7 +263,7 @@ export default function Home() {
 
               {/* Vehicle table — admin / manager only */}
               {(role === "admin" || role === "manager") && (
-                <VehicleTable darkMode={darkMode} />
+                <VehicleTable darkMode={darkMode} role={role} />
               )}
 
               {/* Order table — admin / manager only */}

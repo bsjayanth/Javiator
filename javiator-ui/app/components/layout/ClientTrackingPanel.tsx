@@ -16,7 +16,9 @@ type Order = {
   id: number;
   customer_name?: string;
   status?: string;
+  estimated_delivery_time?: number;
   eta_minutes?: number;
+  delivery_progress?: number;
   delivery_completed?: boolean;
 };
 
@@ -182,13 +184,15 @@ export default function ClientTrackingPanel({ darkMode }: Props) {
                   <span className="inline-flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5" />
                     ETA{" "}
-                    {order.eta_minutes != null
-                      ? `${Math.round(order.eta_minutes)} min`
+                    {(order.estimated_delivery_time ?? order.eta_minutes) != null
+                      ? `${Math.round(Number(order.estimated_delivery_time ?? order.eta_minutes))} min`
                       : "calculating"}
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5" />
-                    Route active
+                    {order.delivery_progress != null
+                      ? `${Math.round(order.delivery_progress)}% complete`
+                      : "Route active"}
                   </span>
                 </div>
               </li>
@@ -213,8 +217,8 @@ export default function ClientTrackingPanel({ darkMode }: Props) {
               darkMode ? "text-[#A1A1AA]" : "text-[#6B7280]"
             }`}
           >
-            Predictive ETA engine active — congestion and route optimization
-            applied in realtime.
+            Live simulated tracking — ETA and route progress update from
+            road-network telemetry.
           </p>
         </div>
       </div>

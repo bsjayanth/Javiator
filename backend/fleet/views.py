@@ -1,3 +1,4 @@
+from django.db.models import Avg
 from rest_framework import viewsets
 
 from rest_framework.decorators import (
@@ -153,24 +154,8 @@ def fleet_kpis(request):
     # AVG FUEL
     # ============================================
 
-    avg_fuel = 0
-
-    if total_vehicles > 0:
-
-        total_fuel = sum([
-
-            vehicle.fuel_level
-
-            for vehicle in vehicles
-        ])
-
-        avg_fuel = round(
-
-            total_fuel
-            / total_vehicles,
-
-            1
-        )
+    avg_fuel_value = vehicles.aggregate(avg=Avg("fuel_level"))["avg"]
+    avg_fuel = round(avg_fuel_value, 1) if avg_fuel_value is not None else 0
 
     # ============================================
     # FLEET UTILIZATION
@@ -202,14 +187,23 @@ def fleet_kpis(request):
         "active_vehicles":
             active_vehicles,
 
+        "moving_vehicles":
+            moving_now,
+
         "moving_now":
             moving_now,
+
+        "low_fuel_vehicles":
+            low_fuel,
 
         "low_fuel":
             low_fuel,
 
         "total_orders":
             total_orders,
+
+        "delivered_orders":
+            delivered_orders,
 
         "fleet_utilization":
             fleet_utilization,

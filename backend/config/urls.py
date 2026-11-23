@@ -10,8 +10,15 @@ from rest_framework_simplejwt.views import (
     TokenVerifyView,
 )
 
+from config.health import healthz, readyz
+
 
 urlpatterns = [
+    path("healthz", healthz, name="healthz_no_slash"),
+    path("healthz/", healthz, name="healthz"),
+    path("readyz", readyz, name="readyz_no_slash"),
+    path("readyz/", readyz, name="readyz"),
+
     path("admin/", admin.site.urls),
 
     path("api/fleet/", include("fleet.urls")),

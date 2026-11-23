@@ -9,6 +9,8 @@ import {
 
 } from "lucide-react";
 
+import { apiFetch } from "@/services/api";
+
 
 type Props = {
 
@@ -67,51 +69,19 @@ export default function AddVehicleModal({
 
         setLoading(true);
 
-        const response =
-          await fetch(
-
-            "http://127.0.0.1:8000/api/fleet/vehicles/",
-
-            {
-
-              method: "POST",
-
-              headers: {
-
-                "Content-Type":
-                  "application/json",
-              },
-
-              body: JSON.stringify({
-
-                name,
-
-                driver_name:
-                  driverName,
-
-                vehicle_type:
-                  vehicleType,
-
-                fuel_level:
-                  fuelLevel,
-
-                capacity,
-
-                speed: 0,
-
-                is_available: true,
-
-                is_moving: false,
-              }),
-            }
-          );
-
-        if (!response.ok) {
-
-          throw new Error(
-            "Failed to create vehicle"
-          );
-        }
+        await apiFetch("/api/fleet/vehicles/", {
+          method: "POST",
+          body: JSON.stringify({
+            name,
+            driver_name: driverName,
+            vehicle_type: vehicleType,
+            fuel_level: fuelLevel,
+            capacity,
+            speed: 0,
+            is_available: true,
+            is_moving: false,
+          }),
+        });
 
         onVehicleAdded();
 

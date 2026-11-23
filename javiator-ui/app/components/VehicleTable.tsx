@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import AddVehicleModal from "./AddVehicleModal";
+import { apiFetch } from "@/services/api";
 
 
 type Vehicle = {
@@ -109,38 +110,8 @@ export default function VehicleTable({
     async () => {
 
       try {
-
-        const token =
-          localStorage.getItem(
-            "access"
-          );
-
-        const response =
-          await fetch(
-
-            "http://127.0.0.1:8000/api/fleet/vehicles/",
-
-            {
-
-              headers: {
-
-                Authorization:
-                  `Bearer ${token}`,
-              },
-            }
-          );
-
-        if (!response.ok) {
-
-          throw new Error(
-            "Failed to fetch vehicles"
-          );
-        }
-
-        const data =
-          await response.json();
-
-        setVehicles(data);
+        const data = await apiFetch("/api/fleet/vehicles/");
+        setVehicles(Array.isArray(data) ? data : data.results || []);
 
       } catch (error) {
 
@@ -215,35 +186,9 @@ export default function VehicleTable({
         return;
 
       try {
-
-        const token =
-          localStorage.getItem(
-            "access"
-          );
-
-        const response =
-          await fetch(
-
-            `http://127.0.0.1:8000/api/fleet/vehicles/${id}/`,
-
-            {
-
-              method: "DELETE",
-
-              headers: {
-
-                Authorization:
-                  `Bearer ${token}`,
-              },
-            }
-          );
-
-        if (!response.ok) {
-
-          throw new Error(
-            "Delete failed"
-          );
-        }
+        await apiFetch(`/api/fleet/vehicles/${id}/`, {
+          method: "DELETE",
+        });
 
         fetchVehicles();
 

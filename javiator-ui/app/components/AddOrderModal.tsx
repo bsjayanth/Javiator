@@ -9,6 +9,8 @@ import {
   PackagePlus,
 } from "lucide-react";
 
+import { apiFetch } from "@/services/api";
+
 
 type Props = {
 
@@ -88,19 +90,6 @@ export default function AddOrderModal({
       setLoading(true);
 
       try {
-
-        const token =
-          localStorage.getItem(
-            "access"
-          );
-
-        if (!token) {
-
-          throw new Error(
-            "No access token found"
-          );
-        }
-
         // ============================================
         // 🚀 REQUEST PAYLOAD
         // ============================================
@@ -147,53 +136,10 @@ export default function AddOrderModal({
           payload
         );
 
-        // ============================================
-        // 🚀 API REQUEST
-        // ============================================
-
-        const response =
-          await fetch(
-
-            "http://127.0.0.1:8000/api/orders/",
-
-            {
-
-              method: "POST",
-
-              headers: {
-
-                "Content-Type":
-                  "application/json",
-
-                Authorization:
-                  `Bearer ${token}`,
-              },
-
-              body: JSON.stringify(
-                payload
-              ),
-            }
-          );
-
-        const data =
-          await response.json();
-
-        console.log(
-          "ORDER RESPONSE:",
-          data
-        );
-
-        if (!response.ok) {
-
-          throw new Error(
-
-            data.detail ||
-
-            JSON.stringify(data) ||
-
-            "Failed to create order"
-          );
-        }
+        await apiFetch("/api/orders/", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
 
         // ============================================
         // 🚀 SUCCESS

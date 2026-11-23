@@ -26,6 +26,7 @@ import {
   disconnectOrderSocket,
 
 } from "@/services/orderSocket";
+import { apiFetch } from "@/services/api";
 
 
 type Order = {
@@ -91,36 +92,11 @@ export default function OrderTable({
     async () => {
 
       try {
-
-        const token =
-          localStorage.getItem(
-            "access"
-          );
-
-        const response =
-          await fetch(
-
-            "http://127.0.0.1:8000/api/orders/",
-
-            {
-
-              headers: {
-
-                Authorization:
-                  `Bearer ${token}`,
-              },
-            }
-          );
-
-        const data =
-          await response.json();
+        const data = await apiFetch("/api/orders/");
 
         setOrders(
-
           Array.isArray(data)
-
             ? data
-
             : data.results || []
         );
 
@@ -143,52 +119,25 @@ export default function OrderTable({
     fetchOrders();
 
     connectOrderSocket(
-
       (message) => {
+        const rawOrder =
+          message.type === "order_update" && message.data
+            ? message.data
+            : typeof message.id === "number"
+              ? message
+              : null;
 
-        if (
-          message.type ===
-          "order_update"
-        ) {
-
-          const updatedOrder =
-            message.data;
+        if (rawOrder && typeof rawOrder.id === "number") {
+          const updatedOrder = rawOrder as unknown as Order;
 
           setOrders((prev) => {
-
-            const exists =
-              prev.some(
-
-                (o) =>
-                  o.id ===
-                  updatedOrder.id
-              );
-
-            // UPDATE EXISTING ORDER
-
+            const exists = prev.some((o) => o.id === updatedOrder.id);
             if (exists) {
-
-              return prev.map(
-
-                (order) =>
-
-                  order.id ===
-                  updatedOrder.id
-
-                    ? updatedOrder
-
-                    : order
+              return prev.map((order) =>
+                order.id === updatedOrder.id ? updatedOrder : order
               );
             }
-
-            // ADD NEW ORDER
-
-            return [
-
-              updatedOrder,
-
-              ...prev,
-            ];
+            return [updatedOrder, ...prev];
           });
         }
       }
@@ -235,27 +184,9 @@ export default function OrderTable({
         return;
 
       try {
-
-        const token =
-          localStorage.getItem(
-            "access"
-          );
-
-        await fetch(
-
-          `http://127.0.0.1:8000/api/orders/${id}/`,
-
-          {
-
-            method: "DELETE",
-
-            headers: {
-
-              Authorization:
-                `Bearer ${token}`,
-            },
-          }
-        );
+        await apiFetch(`/api/orders/${id}/`, {
+          method: "DELETE",
+        });
 
         setOrders((prev) =>
           prev.filter(

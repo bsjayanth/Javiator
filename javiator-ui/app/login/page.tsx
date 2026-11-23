@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { useRouter } from "next/navigation";
+import { API_BASE } from "@/services/api";
 
 
 export default function LoginPage() {
@@ -30,10 +31,8 @@ export default function LoginPage() {
 
       setError("");
 
-      // ✅ FIXED LOGIN URL
-
       const response = await fetch(
-        "http://127.0.0.1:8000/api/users/login/",
+        `${API_BASE}/api/users/login/`,
         {
           method: "POST",
 

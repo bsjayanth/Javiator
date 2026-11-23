@@ -1,4 +1,3 @@
-```gitignore
 # ==============================
 # Python
 # ==============================
@@ -91,4 +90,3 @@ backend/celerybeat-schedule.*
 # Local environment and tooling
 # ==============================
 .python-version
-```

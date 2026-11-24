@@ -16,6 +16,8 @@ from .views import (
     fleet_kpis,
 
     simulate_vehicle_movement,
+
+    tick_vehicle_tracking,
 )
 
 
@@ -75,5 +77,11 @@ urlpatterns = [
         "simulate/",
         simulate_vehicle_movement,
         name="simulate-vehicles"
+    ),
+
+    path(
+        "tick/",
+        tick_vehicle_tracking,
+        name="tick-vehicle-tracking"
     ),
 ]

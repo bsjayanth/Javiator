@@ -25,6 +25,7 @@ from accounts.permissions import (
     IsAdminOrManagerOrReadOnly,
 )
 from orders.models import Order
+from tracking.tasks import step_vehicle_locations
 
 import random
 
@@ -378,3 +379,16 @@ def simulate_vehicle_movement(
         "vehicles_updated":
             vehicles.count(),
     })
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminOrManager])
+def tick_vehicle_tracking(request):
+    """Advance active vehicles one deterministic step along their assigned route polylines."""
+    updated_count = step_vehicle_locations()
+    return Response(
+        {
+            "status": "ok",
+            "vehicles_updated": updated_count,
+        }
+    )

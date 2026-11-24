@@ -1,523 +1,209 @@
-from celery import shared_task
+import logging
 
+from asgiref.sync import async_to_sync
+from celery import shared_task
+from channels.layers import get_channel_layer
 from django.utils import timezone
 
 from fleet.models import Vehicle
-
-from fleet.serializers import (
-    VehicleSerializer
-)
-
-from orders.serializers import (
-    OrderSerializer
-)
-
-from channels.layers import (
-    get_channel_layer
-)
-
-from asgiref.sync import (
-    async_to_sync
-)
+from fleet.serializers import VehicleSerializer
+from orders.serializers import OrderSerializer
 
 
-# =========================================================
-# 🚀 MAIN REALTIME TRACKING ENGINE
-# =========================================================
+logger = logging.getLogger(__name__)
 
-@shared_task
-def update_vehicle_locations():
 
-    vehicles = Vehicle.objects.filter(
-        is_moving=True
-    )
+def _broadcast(channel_layer, group_name: str, message_type: str, data: dict) -> None:
+    if not channel_layer:
+        return
+    try:
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            {
+                "type": message_type,
+                "data": data,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "WebSocket broadcast failed for group %s",
+            group_name,
+            exc_info=True,
+        )
 
-    channel_layer = (
-        get_channel_layer()
-    )
 
+def step_vehicle_locations() -> int:
+    """Advance all moving vehicles by one simulated telemetry step along their routes."""
+    vehicles = Vehicle.objects.select_related("current_order").filter(is_moving=True)
+    channel_layer = get_channel_layer()
     updated_count = 0
 
-    # =====================================================
-    # LOOP VEHICLES
-    # =====================================================
-
     for vehicle in vehicles:
-
         route = vehicle.route_data
-
         if not route:
-
             continue
 
         total_points = len(route)
 
-        # =================================================
-        # ✅ ROUTE COMPLETED
-        # =================================================
-
+        # Route completed
         if vehicle.route_index >= total_points:
-
-            print(
-
-                f"✅ Vehicle "
-                f"{vehicle.id} "
-                f"completed route"
-            )
-
-            # =============================================
-            # VEHICLE RESET
-            # =============================================
+            logger.info("Vehicle %s completed route", vehicle.id)
 
             vehicle.is_moving = False
-
             vehicle.route_index = 0
-
             vehicle.route_data = []
-
             vehicle.speed = 0
-
             vehicle.is_available = True
-
             vehicle.remaining_distance = 0
-
             vehicle.eta_minutes = 0
 
-            # =============================================
-            # DRIVER ANALYTICS
-            # =============================================
-
             vehicle.total_deliveries += 1
-
-            vehicle.last_delivery_at = (
-                timezone.now()
-            )
+            vehicle.last_delivery_at = timezone.now()
 
             if vehicle.active_hours > 0:
-
                 vehicle.avg_speed = round(
-
-                    vehicle.total_distance
-
-                    / vehicle.active_hours,
-
-                    2
+                    vehicle.total_distance / vehicle.active_hours,
+                    2,
                 )
 
-            fuel_penalty = (
-                vehicle.fuel_consumed
-                * 0.2
-            )
-
+            fuel_penalty = vehicle.fuel_consumed * 0.2
             vehicle.efficiency_score = round(
-
-                max(
-
-                    50,
-
-                    min(
-
-                        100,
-
-                        100
-                        - fuel_penalty
-                        + (
-                            vehicle.avg_speed
-                            * 0.1
-                        )
-                    )
-                ),
-
-                2
+                max(50, min(100, 100 - fuel_penalty + (vehicle.avg_speed * 0.1))),
+                2,
             )
-
             vehicle.success_rate = 100
 
-            # =============================================
-            # COMPLETE ORDER
-            # =============================================
-
-            if vehicle.current_order:
-
-                order = (
-                    vehicle.current_order
+            # Complete current order plus any clustered orders assigned to this vehicle
+            active_orders = list(
+                vehicle.assigned_orders.filter(delivery_completed=False).exclude(
+                    status="cancelled"
                 )
+            )
+            if vehicle.current_order and all(
+                o.id != vehicle.current_order_id for o in active_orders
+            ):
+                active_orders.append(vehicle.current_order)
 
-                order.status = (
-                    "delivered"
-                )
-
+            now = timezone.now()
+            for order in active_orders:
+                order.status = "delivered"
                 order.delivery_completed = True
-
                 order.delivery_progress = 100
-
-                order.actual_delivery_time = int(
-                    order.estimated_delivery_time
-                )
-
-                order.delivered_at = (
-                    timezone.now()
-                )
-
+                order.actual_delivery_time = int(order.estimated_delivery_time)
+                order.delivered_at = now
                 order.save()
 
-                print(
-
-                    f"📦 Order "
-                    f"{order.id} delivered"
-                )
-
-                # =========================================
-                # ORDER WEBSOCKET
-                # =========================================
-
-                order_data = (
-                    OrderSerializer(
-                        order
-                    ).data
-                )
-
-                async_to_sync(
-                    channel_layer.group_send
-                )(
+                logger.info("Order %s marked delivered", order.id)
+                _broadcast(
+                    channel_layer,
                     "order_tracking",
-
-                    {
-                        "type":
-                        "send_order_update",
-
-                        "data":
-                        order_data,
-                    }
+                    "send_order_update",
+                    OrderSerializer(order).data,
                 )
 
             vehicle.current_order = None
-
             vehicle.save()
 
-            # =============================================
-            # VEHICLE WEBSOCKET
-            # =============================================
-
-            vehicle_data = (
-                VehicleSerializer(
-                    vehicle
-                ).data
-            )
-
-            async_to_sync(
-                channel_layer.group_send
-            )(
+            _broadcast(
+                channel_layer,
                 "fleet_tracking",
-
-                {
-                    "type":
-                    "send_vehicle_update",
-
-                    "data":
-                    vehicle_data,
-                }
+                "send_vehicle_update",
+                VehicleSerializer(vehicle).data,
             )
-
             updated_count += 1
-
             continue
 
-        # =================================================
-        # 🚚 MOVE VEHICLE
-        # =================================================
-
-        point = route[
-            vehicle.route_index
-        ]
-
+        # Advance along polyline
+        point = route[vehicle.route_index]
         vehicle.current_lat = point[0]
-
         vehicle.current_lng = point[1]
 
-        # =================================================
-        # 🚀 MOVE ROUTE INDEX
-        # =================================================
-
         vehicle.route_index += 8
-
-        vehicle.speed = 60 + (
-            vehicle.route_index % 40
-        )
-
-        # =================================================
-        # ⛽ FUEL CONSUMPTION
-        # =================================================
+        vehicle.speed = 60 + (vehicle.route_index % 40)
 
         fuel_used = 0.3
-
-        vehicle.fuel_level = max(
-
-            vehicle.fuel_level
-            - fuel_used,
-
-            0
-        )
-
-        # =================================================
-        # 📊 DRIVER ANALYTICS
-        # =================================================
+        vehicle.fuel_level = max(vehicle.fuel_level - fuel_used, 0)
 
         distance_increment = 0.4
+        vehicle.total_distance += distance_increment
+        vehicle.fuel_consumed += fuel_used
+        vehicle.active_hours += 0.01
 
-        vehicle.total_distance += (
-            distance_increment
-        )
-
-        vehicle.fuel_consumed += (
-            fuel_used
-        )
-
-        vehicle.active_hours += (
-            0.01
-        )
-
-        # =================================================
-        # 📍 ETA + DISTANCE
-        # =================================================
-
-        remaining_points = (
-
-            total_points
-            - vehicle.route_index
-        )
-
-        vehicle.remaining_distance = round(
-
-            remaining_points
-            * 0.05,
-
-            2
-        )
+        remaining_points = max(total_points - vehicle.route_index, 0)
+        vehicle.remaining_distance = round(remaining_points * 0.05, 2)
 
         if vehicle.speed > 0:
-
             vehicle.eta_minutes = round(
-
-                (
-                    vehicle.remaining_distance
-
-                    / vehicle.speed
-                ) * 60,
-
-                2
+                (vehicle.remaining_distance / vehicle.speed) * 60,
+                2,
             )
-
         else:
-
             vehicle.eta_minutes = 0
 
-        # =================================================
-        # 📦 DELIVERY PROGRESS
-        # =================================================
+        progress = round(min((vehicle.route_index / total_points) * 100, 100), 2)
 
-        progress = round(
-
-            min(
-
-                (
-                    vehicle.route_index
-                    / total_points
-                ) * 100,
-
-                100
-            ),
-
-            2
+        active_orders = list(
+            vehicle.assigned_orders.filter(delivery_completed=False).exclude(
+                status="cancelled"
+            )
         )
+        if vehicle.current_order and all(
+            o.id != vehicle.current_order_id for o in active_orders
+        ):
+            active_orders.append(vehicle.current_order)
 
-        # =================================================
-        # 📦 UPDATE ACTIVE ORDER
-        # =================================================
+        for order in active_orders:
+            order.delivery_progress = progress
+            order.delivery_distance_km = vehicle.remaining_distance
+            order.estimated_delivery_time = int(vehicle.eta_minutes)
+            order.traffic_delay_minutes = round(vehicle.eta_minutes * 0.1, 2)
+            order.fuel_cost_estimate = round(vehicle.fuel_consumed * 1.25, 2)
+            order.carbon_emission_score = round(vehicle.total_distance * 0.15, 2)
 
-        if vehicle.current_order:
+            if progress >= 30 and order.status == "assigned":
+                order.status = "pickup_started"
+                order.pickup_started_at = timezone.now()
+                logger.info("Pickup started for Order %s", order.id)
 
-            order = (
-                vehicle.current_order
-            )
-
-            # =============================================
-            # UPDATE DELIVERY DATA
-            # =============================================
-
-            order.delivery_progress = (
-                progress
-            )
-
-            order.delivery_distance_km = (
-                vehicle.remaining_distance
-            )
-
-            order.estimated_delivery_time = int(
-                vehicle.eta_minutes
-            )
-
-            # =============================================
-            # AI METRICS
-            # =============================================
-
-            order.traffic_delay_minutes = round(
-
-                vehicle.eta_minutes
-                * 0.1,
-
-                2
-            )
-
-            order.fuel_cost_estimate = round(
-
-                vehicle.fuel_consumed
-                * 1.25,
-
-                2
-            )
-
-            order.carbon_emission_score = round(
-
-                vehicle.total_distance
-                * 0.15,
-
-                2
-            )
-
-            # =============================================
-            # PICKUP STARTED
-            # =============================================
-
-            if (
-
-                progress >= 30
-
-                and order.status
-                == "assigned"
-            ):
-
-                order.status = (
-                    "pickup_started"
-                )
-
-                order.pickup_started_at = (
-                    timezone.now()
-                )
-
-                print(
-
-                    f"📦 Pickup started "
-                    f"for Order "
-                    f"{order.id}"
-                )
-
-            # =============================================
-            # IN TRANSIT
-            # =============================================
-
-            if (
-
-                progress >= 60
-
-                and order.status
-                == "pickup_started"
-            ):
-
-                order.status = (
-                    "in_transit"
-                )
-
+            if progress >= 60 and order.status == "pickup_started":
+                order.status = "in_transit"
                 order.pickup_completed = True
-
-                print(
-
-                    f"🚚 Order "
-                    f"{order.id} "
-                    f"in transit"
-                )
+                logger.info("Order %s in transit", order.id)
 
             order.save()
 
-            # =============================================
-            # 🔥 ORDER WEBSOCKET UPDATE
-            # =============================================
-
-            order_data = (
-                OrderSerializer(
-                    order
-                ).data
-            )
-
-            async_to_sync(
-                channel_layer.group_send
-            )(
+            _broadcast(
+                channel_layer,
                 "order_tracking",
-
-                {
-                    "type":
-                    "send_order_update",
-
-                    "data":
-                    order_data,
-                }
+                "send_order_update",
+                OrderSerializer(order).data,
             )
-
-        # =================================================
-        # LOW FUEL LOGIC
-        # =================================================
 
         if vehicle.fuel_level < 10:
-
             vehicle.is_available = False
-
-        # =================================================
-        # SAVE VEHICLE
-        # =================================================
 
         vehicle.save()
 
-        # =================================================
-        # 🚀 VEHICLE WEBSOCKET UPDATE
-        # =================================================
-
-        vehicle_data = (
-            VehicleSerializer(
-                vehicle
-            ).data
-        )
-
-        async_to_sync(
-            channel_layer.group_send
-        )(
+        _broadcast(
+            channel_layer,
             "fleet_tracking",
-
-            {
-                "type":
-                "send_vehicle_update",
-
-                "data":
-                vehicle_data,
-            }
+            "send_vehicle_update",
+            VehicleSerializer(vehicle).data,
         )
 
         updated_count += 1
-
-        print(
-
-            f"🚚 Vehicle "
-            f"{vehicle.id}"
-
-            f" | Progress: "
-            f"{progress}%"
-
-            f" | Fuel: "
-            f"{vehicle.fuel_level:.1f}%"
-
-            f" | ETA: "
-            f"{vehicle.eta_minutes} min"
+        logger.debug(
+            "Vehicle %s | Progress %.1f%% | Fuel %.1f%% | ETA %.1f min",
+            vehicle.id,
+            progress,
+            vehicle.fuel_level,
+            vehicle.eta_minutes,
         )
 
-    return (
-        f"{updated_count} vehicles updated"
-    )
+    return updated_count
+
+
+@shared_task
+def update_vehicle_locations():
+    updated_count = step_vehicle_locations()
+    return f"{updated_count} vehicles updated"

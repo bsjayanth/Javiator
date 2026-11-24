@@ -319,20 +319,28 @@ CELERY_TIMEZONE = "UTC"
 
 
 # =====================================================
-# CELERY BEAT SCHEDULE
+# CELERY BEAT SCHEDULE & DEMO MODE
 # =====================================================
 
+FREE_TIER_DEMO_MODE = (
+    os.getenv("FREE_TIER_DEMO_MODE", "False").strip().lower() == "true"
+)
+
+ALLOW_SYNTHETIC_ROUTE_FALLBACK = (
+    os.getenv("ALLOW_SYNTHETIC_ROUTE_FALLBACK", "False").strip().lower() == "true"
+)
+
 CELERY_BEAT_SCHEDULE = {
-    # Vehicle live tracking
+    # Vehicle live tracking simulation tick
     "update-vehicles-every-5-seconds": {
         "task": "tracking.tasks.update_vehicle_locations",
-        "schedule": 5.0,
+        "schedule": float(os.getenv("TRACKING_TICK_INTERVAL_SECONDS", "5.0")),
     },
 
-    # Auto dispatch
-    "auto-dispatch-every-5-seconds": {
+    # Fallback sweep for any unassigned orders (primary dispatch is event-driven)
+    "auto-dispatch-safety-sweep": {
         "task": "dispatch.tasks.auto_dispatch",
-        "schedule": 5.0,
+        "schedule": float(os.getenv("AUTO_DISPATCH_INTERVAL_SECONDS", "30.0")),
     },
 }
 

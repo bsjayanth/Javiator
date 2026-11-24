@@ -2,7 +2,7 @@ import logging
 
 from celery import shared_task
 
-from dispatch.services import assign_vehicle
+from dispatch.services import assign_vehicle, optimize_batch_dispatch
 from fleet.models import Vehicle
 from notifications.models import Notification
 from orders.models import Order
@@ -11,27 +11,30 @@ from orders.models import Order
 logger = logging.getLogger(__name__)
 
 
+def _emit_assignment_alert(order, vehicle):
+    Notification.objects.filter(
+        order=order,
+        alert_type="dispatch",
+        severity="critical",
+        is_active=True,
+    ).update(is_active=False)
+
+    Notification.objects.create(
+        title="Vehicle Assigned",
+        message=f"Vehicle {vehicle.name} assigned to Order #{order.id}",
+        alert_type="dispatch",
+        severity="info",
+        vehicle=vehicle,
+        order=order,
+    )
+
+
 def dispatch_order_with_alerts(order):
     """Attempt vehicle assignment for an order and emit deduplicated alerts."""
     vehicle = assign_vehicle(order.id)
 
     if vehicle:
-        # Resolve any previous active failure alerts for this order.
-        Notification.objects.filter(
-            order=order,
-            alert_type="dispatch",
-            severity="critical",
-            is_active=True,
-        ).update(is_active=False)
-
-        Notification.objects.create(
-            title="Vehicle Assigned",
-            message=f"Vehicle {vehicle.name} assigned to Order #{order.id}",
-            alert_type="dispatch",
-            severity="info",
-            vehicle=vehicle,
-            order=order,
-        )
+        _emit_assignment_alert(order, vehicle)
         logger.info("Dispatched Order %s to Vehicle %s", order.id, vehicle.id)
         return vehicle
 
@@ -109,19 +112,37 @@ def evaluate_fleet_alerts():
 
 @shared_task
 def auto_dispatch():
-    """Safety sweep for any unassigned orders plus operational alert checks."""
+    """Run global Hungarian batch optimization when multiple orders are pending."""
     pending_orders = Order.objects.filter(
         status="created",
         assigned_vehicle__isnull=True,
     )
-
     pending_count = pending_orders.count()
+    available_count = Vehicle.objects.filter(
+        is_available=True,
+        fuel_level__gte=15,
+    ).count()
     dispatched_count = 0
 
     if pending_count:
         logger.info("Auto-dispatch sweep checking %s pending order(s)", pending_count)
 
-    for order in pending_orders:
+    # Use global Hungarian matching when >= 2 orders compete for >= 2 vehicles
+    if pending_count >= 2 and available_count >= 2:
+        batch_result = optimize_batch_dispatch()
+        for item in batch_result["assignments"]:
+            order = Order.objects.filter(id=item["order_id"]).first()
+            vehicle = Vehicle.objects.filter(id=item["vehicle_id"]).first()
+            if order and vehicle:
+                _emit_assignment_alert(order, vehicle)
+                dispatched_count += 1
+
+    # Handle any single or leftover unassigned orders (and emit deduplicated failure alerts)
+    remaining_pending = Order.objects.filter(
+        status="created",
+        assigned_vehicle__isnull=True,
+    )
+    for order in remaining_pending:
         vehicle = dispatch_order_with_alerts(order)
         if vehicle:
             dispatched_count += 1

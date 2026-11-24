@@ -7,11 +7,14 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from accounts.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly
+from dispatch.services import optimize_batch_dispatch
 from dispatch.tasks import (
+    _emit_assignment_alert,
     auto_dispatch,
     dispatch_order_with_alerts,
     evaluate_fleet_alerts,
 )
+from fleet.models import Vehicle
 
 from .models import Order
 from .serializers import OrderSerializer
@@ -90,3 +93,21 @@ class OrderViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_200_OK,
         )
+
+    @action(
+        detail=False,
+        methods=["post"],
+        permission_classes=[IsAdminOrManager],
+        url_path="optimize-dispatch",
+    )
+    def optimize_dispatch(self, request):
+        """Run global Hungarian optimization across all pending orders and available vehicles."""
+        result = optimize_batch_dispatch()
+        for item in result["assignments"]:
+            order = Order.objects.filter(id=item["order_id"]).first()
+            vehicle = Vehicle.objects.filter(id=item["vehicle_id"]).first()
+            if order and vehicle:
+                _emit_assignment_alert(order, vehicle)
+
+        evaluate_fleet_alerts()
+        return Response(result, status=status.HTTP_200_OK)

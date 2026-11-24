@@ -3,6 +3,7 @@ from rest_framework.response import Response
 
 from accounts.permissions import IsAdminOrManager
 from dispatch.ml.eta_model import get_model_metrics
+from dispatch.optimizer import get_last_optimization_summary
 from dispatch.routing import get_route_cache_stats
 
 
@@ -23,10 +24,11 @@ def dashboard_metrics(request):
 @api_view(["GET"])
 @permission_classes([IsAdminOrManager])
 def model_metrics(request):
-    """Return held-out ML ETA evaluation metrics and ORS route cache stats."""
+    """Return held-out ML ETA metrics, global optimizer summary, and ORS cache stats."""
     return Response(
         {
             "eta_model": get_model_metrics(),
+            "dispatch_optimizer": get_last_optimization_summary(),
             "routing_cache": get_route_cache_stats(),
         }
     )

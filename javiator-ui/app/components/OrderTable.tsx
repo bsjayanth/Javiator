@@ -15,6 +15,8 @@ import {
   MapPin,
   Truck,
   Clock3,
+  Sparkles,
+  Send,
 } from "lucide-react";
 
 import AddOrderModal from "./AddOrderModal";
@@ -49,9 +51,19 @@ type Order = {
 
   assigned_vehicle: number | null;
 
+  assigned_vehicle_name?: string | null;
+
   estimated_delivery_time: number;
 
   delivery_progress: number;
+
+  ai_dispatch_score?: number;
+
+  traffic_delay_minutes?: number;
+
+  delay_risk?: "low" | "medium" | "high";
+
+  eta_factors?: string[];
 
   priority?: string;
 };
@@ -84,6 +96,15 @@ export default function OrderTable({
   const [openAddModal, setOpenAddModal] =
     useState(false);
 
+  const [optimizing, setOptimizing] =
+    useState(false);
+
+  const [dispatchingId, setDispatchingId] =
+    useState<number | null>(null);
+
+  const [optimizerBanner, setOptimizerBanner] =
+    useState<string | null>(null);
+
   // =====================================================
   // FETCH ORDERS
   // =====================================================
@@ -115,8 +136,24 @@ export default function OrderTable({
   // =====================================================
 
   useEffect(() => {
+    let cancelled = false;
 
-    fetchOrders();
+    const loadInitial = async () => {
+      try {
+        const data = await apiFetch("/api/orders/");
+        if (!cancelled) {
+          setOrders(Array.isArray(data) ? data : data.results || []);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadInitial();
 
     connectOrderSocket(
       (message) => {
@@ -144,11 +181,77 @@ export default function OrderTable({
     );
 
     return () => {
-
+      cancelled = true;
       disconnectOrderSocket();
     };
-
   }, []);
+
+  const handleOptimizeDispatch = async () => {
+    setOptimizing(true);
+    setOptimizerBanner(null);
+    try {
+      const result = await apiFetch("/api/orders/optimize-dispatch/", {
+        method: "POST",
+      });
+      const metrics = result?.metrics;
+      const count = Array.isArray(result?.assignments)
+        ? result.assignments.length
+        : 0;
+      if (count > 0 && metrics) {
+        setOptimizerBanner(
+          `Hungarian optimizer assigned ${count} order(s) · saved ${metrics.distance_saved_km} km vs greedy (${metrics.solve_time_ms} ms)`
+        );
+      } else {
+        setOptimizerBanner("No pending unassigned orders with available vehicles.");
+      }
+      await fetchOrders();
+    } catch (error) {
+      setOptimizerBanner(
+        error instanceof Error ? error.message : "Batch optimization failed"
+      );
+    } finally {
+      setOptimizing(false);
+    }
+  };
+
+  const handleDispatchSingle = async (id: number) => {
+    setDispatchingId(id);
+    setOptimizerBanner(null);
+    try {
+      const result = await apiFetch(`/api/orders/${id}/dispatch/`, {
+        method: "POST",
+      });
+      if (result?.order) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === id ? (result.order as Order) : o))
+        );
+      }
+      setOptimizerBanner(`Order #${id} dispatched.`);
+    } catch (error) {
+      setOptimizerBanner(
+        error instanceof Error ? error.message : `Unable to dispatch Order #${id}`
+      );
+    } finally {
+      setDispatchingId(null);
+    }
+  };
+
+  const getRiskStyle = (risk?: string) => {
+    switch (risk) {
+      case "high":
+        return darkMode
+          ? "bg-rose-500/15 text-rose-300 border-rose-500/25"
+          : "bg-rose-50 text-rose-700 border-rose-200";
+      case "medium":
+        return darkMode
+          ? "bg-amber-500/15 text-amber-300 border-amber-500/25"
+          : "bg-amber-50 text-amber-700 border-amber-200";
+      default:
+        return darkMode
+          ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/25"
+          : "bg-emerald-50 text-emerald-700 border-emerald-200";
+    }
+  };
 
   // =====================================================
   // REFRESH
@@ -397,6 +500,24 @@ export default function OrderTable({
 
             </button>
 
+            {/* OPTIMIZE BATCH */}
+
+            <button
+              onClick={handleOptimizeDispatch}
+              disabled={optimizing}
+              className={`h-[46px] px-5 rounded-2xl border flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-60 ${
+                darkMode
+                  ? "bg-[#151515] border-white/[0.08] text-[#FAFAFA] hover:bg-[#1E1E1E]"
+                  : "bg-[#F8FAFC] border-[#E5E7EB] text-[#111827] hover:bg-[#F3F4F6]"
+              }`}
+            >
+
+              <Sparkles className="w-4 h-4" />
+
+              {optimizing ? "Optimizing..." : "Optimize Batch"}
+
+            </button>
+
             {/* ADD */}
 
             <button
@@ -415,6 +536,25 @@ export default function OrderTable({
           </div>
 
         </div>
+
+        {optimizerBanner && (
+          <div
+            className={`px-6 py-3 border-b text-xs font-medium flex items-center justify-between gap-3 ${
+              darkMode
+                ? "border-white/[0.05] bg-[#151515] text-[#D4D4D8]"
+                : "border-[#E5E7EB] bg-[#F8FAFC] text-[#374151]"
+            }`}
+          >
+            <span>{optimizerBanner}</span>
+            <button
+              type="button"
+              onClick={() => setOptimizerBanner(null)}
+              className="opacity-70 hover:opacity-100"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* TABLE */}
 
@@ -678,15 +818,30 @@ export default function OrderTable({
 
                       <td className="px-6 py-5">
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-1">
 
-                          <Truck className="w-4 h-4" />
+                          <div className="flex items-center gap-2">
 
-                          {order.assigned_vehicle
+                            <Truck className="w-4 h-4" />
 
-                            ? `Vehicle ${order.assigned_vehicle}`
+                            {order.assigned_vehicle_name
+                              ? order.assigned_vehicle_name
+                              : order.assigned_vehicle
+                                ? `Vehicle ${order.assigned_vehicle}`
+                                : "Unassigned"}
 
-                            : "Unassigned"}
+                          </div>
+
+                          {order.ai_dispatch_score != null &&
+                            order.ai_dispatch_score > 0 && (
+                              <span
+                                className={`text-[11px] ${
+                                  darkMode ? "text-zinc-400" : "text-zinc-500"
+                                }`}
+                              >
+                                Cost score: {order.ai_dispatch_score.toFixed(2)}
+                              </span>
+                            )}
 
                         </div>
 
@@ -696,11 +851,27 @@ export default function OrderTable({
 
                       <td className="px-6 py-5">
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-1.5">
 
-                          <Clock3 className="w-4 h-4" />
+                          <div className="flex items-center gap-2">
 
-                          {order.estimated_delivery_time} min
+                            <Clock3 className="w-4 h-4" />
+
+                            {order.estimated_delivery_time} min
+
+                          </div>
+
+                          {order.delay_risk && (
+                            <span
+                              title={
+                                order.eta_factors?.join(" · ") ||
+                                "ML delay risk estimate"
+                              }
+                              className={`inline-flex w-fit px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border ${getRiskStyle(order.delay_risk)}`}
+                            >
+                              {order.delay_risk} risk
+                            </span>
+                          )}
 
                         </div>
 
@@ -710,24 +881,45 @@ export default function OrderTable({
 
                       <td className="px-6 py-5">
 
-                        <button
-                          onClick={() =>
-                            handleDelete(
-                              order.id
-                            )
-                          }
-                          className={`w-9 h-9 rounded-xl border flex items-center justify-center ${
-                            darkMode
+                        <div className="flex items-center gap-2">
 
-                              ? "bg-red-500/10 border-red-500/10 text-red-400"
+                          {!order.assigned_vehicle &&
+                            order.status === "created" && (
+                              <button
+                                onClick={() => handleDispatchSingle(order.id)}
+                                disabled={dispatchingId === order.id}
+                                title="Dispatch this order"
+                                className={`w-9 h-9 rounded-xl border flex items-center justify-center disabled:opacity-50 ${
+                                  darkMode
+                                    ? "bg-blue-500/15 border-blue-500/25 text-blue-300"
+                                    : "bg-blue-50 border-blue-200 text-blue-700"
+                                }`}
+                              >
+                                <Send className="w-4 h-4" />
+                              </button>
+                            )}
 
-                              : "bg-red-50 border-red-200 text-red-600"
-                          }`}
-                        >
+                          <button
+                            onClick={() =>
+                              handleDelete(
+                                order.id
+                              )
+                            }
+                            title="Delete order"
+                            className={`w-9 h-9 rounded-xl border flex items-center justify-center ${
+                              darkMode
 
-                          <Trash2 className="w-4 h-4" />
+                                ? "bg-red-500/10 border-red-500/10 text-red-400"
 
-                        </button>
+                                : "bg-red-50 border-red-200 text-red-600"
+                            }`}
+                          >
+
+                            <Trash2 className="w-4 h-4" />
+
+                          </button>
+
+                        </div>
 
                       </td>
 

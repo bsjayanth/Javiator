@@ -1,5 +1,9 @@
 "use client";
 
+import { useState } from "react";
+
+import { apiFetch } from "@/services/api";
+
 import ActivityFeed from "./ActivityFeed";
 
 import AIinsights from "./AIinsights";
@@ -13,6 +17,8 @@ import {
   Fuel,
   Gauge,
   User,
+  Sparkles,
+  Play,
 
 } from "lucide-react";
 
@@ -50,6 +56,50 @@ export default function DispatchPanel({
   showActivityFeed = true,
   variant = "operations",
 }: Props) {
+  const [busyAction, setBusyAction] = useState<"optimize" | "tick" | null>(null);
+  const [actionStatus, setActionStatus] = useState<string | null>(null);
+
+  const handleOptimize = async () => {
+    setBusyAction("optimize");
+    setActionStatus(null);
+    try {
+      const res = await apiFetch("/api/orders/optimize-dispatch/", {
+        method: "POST",
+      });
+      const count = Array.isArray(res?.assignments) ? res.assignments.length : 0;
+      const saved = res?.metrics?.distance_saved_km ?? 0;
+      const ms = res?.metrics?.solve_time_ms ?? 0;
+      setActionStatus(
+        count > 0
+          ? `Assigned ${count} order(s) · saved ${saved} km vs greedy (${ms} ms)`
+          : "No pending unassigned orders to optimize."
+      );
+    } catch (err) {
+      setActionStatus(
+        err instanceof Error ? err.message : "Optimization failed"
+      );
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleTick = async () => {
+    setBusyAction("tick");
+    setActionStatus(null);
+    try {
+      const res = await apiFetch("/api/fleet/tick/", { method: "POST" });
+      const updated = Number(res?.vehicles_updated) || 0;
+      setActionStatus(
+        updated > 0
+          ? `Stepped ${updated} active vehicle(s) along route polylines.`
+          : "No vehicles currently moving."
+      );
+    } catch (err) {
+      setActionStatus(err instanceof Error ? err.message : "Tick failed");
+    } finally {
+      setBusyAction(null);
+    }
+  };
 
   return (
 
@@ -400,6 +450,61 @@ export default function DispatchPanel({
 
           </div>
 
+        )}
+
+        {variant === "operations" && (
+          <div
+            className={`rounded-3xl border p-4 space-y-3 transition-colors ${
+              darkMode
+                ? "bg-[#171717] border-white/[0.06]"
+                : "bg-[#F8FAFC] border-[#E5E7EB]"
+            }`}
+          >
+            <p
+              className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${
+                darkMode ? "text-[#A1A1AA]" : "text-[#6B7280]"
+              }`}
+            >
+              Dispatch & simulation controls
+            </p>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={handleOptimize}
+                disabled={busyAction !== null}
+                className={`h-10 rounded-xl border px-3 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60 ${
+                  darkMode
+                    ? "bg-[#FAFAFA] text-[#111111] border-white/10 hover:bg-white"
+                    : "bg-[#111827] text-white border-[#111827] hover:bg-[#1F2937]"
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                {busyAction === "optimize" ? "Solving..." : "Optimize"}
+              </button>
+              <button
+                type="button"
+                onClick={handleTick}
+                disabled={busyAction !== null}
+                className={`h-10 rounded-xl border px-3 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60 ${
+                  darkMode
+                    ? "bg-[#111111] text-[#FAFAFA] border-white/[0.08] hover:bg-[#1C1C1C]"
+                    : "bg-white text-[#111827] border-[#E5E7EB] hover:bg-[#F3F4F6]"
+                }`}
+              >
+                <Play className="w-3.5 h-3.5" />
+                {busyAction === "tick" ? "Stepping..." : "Step GPS"}
+              </button>
+            </div>
+            {actionStatus && (
+              <p
+                className={`text-xs leading-relaxed ${
+                  darkMode ? "text-[#D4D4D8]" : "text-[#4B5563]"
+                }`}
+              >
+                {actionStatus}
+              </p>
+            )}
+          </div>
         )}
 
         {showActivityFeed && (

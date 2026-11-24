@@ -1,14 +1,15 @@
-
 import logging
 
 from django.db import transaction
+from django.utils import timezone
 
 from fleet.models import Vehicle
 from orders.models import Order
 
-from .utils import calculate_distance
-from .routing import get_route, RoutingError
 from .ai_dispatch import calculate_ai_score
+from .ml.eta_model import predict_eta_and_risk
+from .routing import RoutingError, get_route
+from .utils import calculate_distance
 
 
 logger = logging.getLogger(__name__)
@@ -73,13 +74,13 @@ def find_nearby_orders(order, radius=5):
 
 
 # =====================================================
-# AI AUTO DISPATCH ENGINE
+# AUTO DISPATCH ENGINE
 # =====================================================
 
 def assign_vehicle(order_id):
     """
-    Select a suitable vehicle, generate its route, and assign
-    the requested order plus nearby compatible orders.
+    Select a suitable vehicle, generate its route, predict ML ETA & delay risk,
+    and assign the requested order plus nearby compatible orders.
 
     Returns:
         Vehicle: the selected vehicle after successful assignment.
@@ -142,7 +143,7 @@ def assign_vehicle(order_id):
         ai_score = calculate_ai_score(vehicle, order)
 
         logger.debug(
-            "Vehicle %s received AI score %s",
+            "Vehicle %s received dispatch score %s",
             vehicle.id,
             ai_score,
         )
@@ -243,14 +244,14 @@ def assign_vehicle(order_id):
             if nearby_order.id != order.id:
                 cluster_orders.append(nearby_order)
 
-        # Update the vehicle route and availability.
+        # Update the vehicle route, availability, and ML-predicted ETA.
         best_vehicle.route_data = route
         best_vehicle.route_index = 0
         best_vehicle.current_order = order
         best_vehicle.is_moving = True
         best_vehicle.is_available = False
 
-        best_vehicle.remaining_distance = round(
+        primary_distance = round(
             calculate_distance(
                 order.pickup_lat,
                 order.pickup_lng,
@@ -259,12 +260,21 @@ def assign_vehicle(order_id):
             ),
             2,
         )
-
-        best_vehicle.eta_minutes = round(
-            best_vehicle.remaining_distance * 3,
-            2,
+        primary_eta = predict_eta_and_risk(
+            distance_km=primary_distance,
+            pickup_lat=order.pickup_lat,
+            pickup_lng=order.pickup_lng,
+            drop_lat=order.drop_lat,
+            drop_lng=order.drop_lng,
+            vehicle_type=best_vehicle.vehicle_type,
+            weight=order.weight,
+            capacity=best_vehicle.capacity,
+            fuel_level=best_vehicle.fuel_level,
+            priority=order.priority,
         )
 
+        best_vehicle.remaining_distance = primary_distance
+        best_vehicle.eta_minutes = primary_eta["predicted_eta_minutes"]
         best_vehicle.save()
 
         # -------------------------------------------------
@@ -273,10 +283,9 @@ def assign_vehicle(order_id):
 
         total_weight = 0
         assigned_count = 0
+        now = timezone.now()
 
         for cluster_order in cluster_orders:
-            # Re-fetch and lock each order so concurrent workers
-            # are less likely to assign the same order.
             locked_order = Order.objects.select_for_update().get(
                 id=cluster_order.id
             )
@@ -297,6 +306,8 @@ def assign_vehicle(order_id):
 
             locked_order.assigned_vehicle = best_vehicle
             locked_order.status = "assigned"
+            locked_order.assigned_at = now
+            locked_order.ai_dispatch_score = round(best_score, 3)
 
             distance = calculate_distance(
                 locked_order.pickup_lat,
@@ -304,19 +315,36 @@ def assign_vehicle(order_id):
                 locked_order.drop_lat,
                 locked_order.drop_lng,
             )
+            order_eta = predict_eta_and_risk(
+                distance_km=distance,
+                pickup_lat=locked_order.pickup_lat,
+                pickup_lng=locked_order.pickup_lng,
+                drop_lat=locked_order.drop_lat,
+                drop_lng=locked_order.drop_lng,
+                vehicle_type=best_vehicle.vehicle_type,
+                weight=locked_order.weight,
+                capacity=best_vehicle.capacity,
+                fuel_level=best_vehicle.fuel_level,
+                priority=locked_order.priority,
+            )
 
             locked_order.delivery_distance_km = round(distance, 2)
-            locked_order.estimated_delivery_time = round(distance * 3)
-
+            locked_order.estimated_delivery_time = max(
+                1,
+                round(order_eta["predicted_eta_minutes"]),
+            )
+            locked_order.traffic_delay_minutes = order_eta["estimated_delay_minutes"]
             locked_order.save()
 
             total_weight += locked_order.weight
             assigned_count += 1
 
             logger.info(
-                "Assigned order %s to vehicle %s",
+                "Assigned order %s to vehicle %s (ML ETA: %s min, risk: %s)",
                 locked_order.id,
                 best_vehicle.id,
+                order_eta["predicted_eta_minutes"],
+                order_eta["delay_risk"],
             )
 
         logger.info(

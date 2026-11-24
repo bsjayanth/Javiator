@@ -5,6 +5,7 @@ from celery import shared_task
 from channels.layers import get_channel_layer
 from django.utils import timezone
 
+from dispatch.ml.eta_model import predict_eta_and_risk
 from fleet.models import Vehicle
 from fleet.serializers import VehicleSerializer
 from orders.serializers import OrderSerializer
@@ -132,16 +133,6 @@ def step_vehicle_locations() -> int:
         remaining_points = max(total_points - vehicle.route_index, 0)
         vehicle.remaining_distance = round(remaining_points * 0.05, 2)
 
-        if vehicle.speed > 0:
-            vehicle.eta_minutes = round(
-                (vehicle.remaining_distance / vehicle.speed) * 60,
-                2,
-            )
-        else:
-            vehicle.eta_minutes = 0
-
-        progress = round(min((vehicle.route_index / total_points) * 100, 100), 2)
-
         active_orders = list(
             vehicle.assigned_orders.filter(delivery_completed=False).exclude(
                 status="cancelled"
@@ -152,11 +143,39 @@ def step_vehicle_locations() -> int:
         ):
             active_orders.append(vehicle.current_order)
 
+        lead_order = vehicle.current_order or (active_orders[0] if active_orders else None)
+        if lead_order and vehicle.remaining_distance > 0:
+            eta_info = predict_eta_and_risk(
+                distance_km=vehicle.remaining_distance,
+                pickup_lat=vehicle.current_lat,
+                pickup_lng=vehicle.current_lng,
+                drop_lat=lead_order.drop_lat,
+                drop_lng=lead_order.drop_lng,
+                vehicle_type=vehicle.vehicle_type,
+                weight=lead_order.weight,
+                capacity=vehicle.capacity,
+                fuel_level=vehicle.fuel_level,
+                priority=lead_order.priority,
+            )
+            vehicle.eta_minutes = eta_info["predicted_eta_minutes"]
+            predicted_delay = eta_info["estimated_delay_minutes"]
+        elif vehicle.speed > 0:
+            vehicle.eta_minutes = round(
+                (vehicle.remaining_distance / vehicle.speed) * 60,
+                2,
+            )
+            predicted_delay = 0.0
+        else:
+            vehicle.eta_minutes = 0
+            predicted_delay = 0.0
+
+        progress = round(min((vehicle.route_index / total_points) * 100, 100), 2)
+
         for order in active_orders:
             order.delivery_progress = progress
             order.delivery_distance_km = vehicle.remaining_distance
-            order.estimated_delivery_time = int(vehicle.eta_minutes)
-            order.traffic_delay_minutes = round(vehicle.eta_minutes * 0.1, 2)
+            order.estimated_delivery_time = max(1, round(vehicle.eta_minutes)) if vehicle.eta_minutes > 0 else 0
+            order.traffic_delay_minutes = predicted_delay
             order.fuel_cost_estimate = round(vehicle.fuel_consumed * 1.25, 2)
             order.carbon_emission_score = round(vehicle.total_distance * 0.15, 2)
 

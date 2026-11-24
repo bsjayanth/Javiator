@@ -90,3 +90,8 @@ backend/celerybeat-schedule.*
 # Local environment and tooling
 # ==============================
 .python-version
+
+# ==============================
+# ML binary artifacts (rebuilt per runtime Python/sklearn version)
+# ==============================
+backend/dispatch/ml/*.joblib

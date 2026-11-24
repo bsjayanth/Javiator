@@ -1,0 +1,43 @@
+{
+  "model_type": "GradientBoostingRegressor",
+  "training_data": "synthetic_bengaluru_corridors",
+  "disclaimer": "Trained on deterministic synthetic Bengaluru corridor trips (portfolio demonstration; not proprietary fleet telemetry).",
+  "n_samples": 3000,
+  "n_train": 2400,
+  "n_test": 600,
+  "seed": 42,
+  "features": [
+    "distance_km",
+    "sin_hour",
+    "cos_hour",
+    "is_weekend",
+    "is_peak_hour",
+    "vehicle_type_code",
+    "payload_ratio",
+    "fuel_level",
+    "corridor_congestion",
+    "priority_code"
+  ],
+  "ml_mae_minutes": 4.51,
+  "ml_rmse_minutes": 6.49,
+  "ml_r2": 0.9644,
+  "baseline_formula": "distance_km * 3.0",
+  "baseline_mae_minutes": 14.89,
+  "baseline_rmse_minutes": 21.18,
+  "mae_improvement_pct": 69.7,
+  "feature_importances": {
+    "distance_km": 0.756,
+    "vehicle_type_code": 0.0828,
+    "is_peak_hour": 0.0702,
+    "corridor_congestion": 0.0349,
+    "sin_hour": 0.0215,
+    "cos_hour": 0.0184,
+    "payload_ratio": 0.0108,
+    "fuel_level": 0.0048,
+    "priority_code": 0.0003,
+    "is_weekend": 0.0002
+  },
+  "sklearn_version": "1.9.1",
+  "python_version": "3.14.8",
+  "trained_at": "2026-11-24T14:03:12.895410+00:00"
+}
